@@ -1,0 +1,27 @@
+-- Tabela de Login
+CREATE TABLE funcionario (
+    cod_funcionario INT PRIMARY KEY,         -- Código do funcionário
+    login_funcionario VARCHAR(50) NOT NULL,  -- Login do funcionário
+    senha VARCHAR(50) NOT NULL,              -- Senha
+    nome VARCHAR(100) NOT NULL               -- Nome do funcionário
+    email VARCHAR (255) NOT NULL             -- Email do funcionário
+);
+
+-- Tabela de Insumo
+CREATE TABLE insumo (
+    cod_insumo INT PRIMARY KEY,      -- Código do insumo
+    produto VARCHAR(100) NOT NULL,   -- Nome do insumo
+    peso INT NOT NULL,               -- Peso do insumo
+    unidade VARCHAR(10) NOT NULL,    -- Unidade de medida (ex: kg, g, l)
+    quantidade INT NOT NULL,         -- Quantidade disponível
+    estoque_min INT NOT NULL,        -- Estoque mínimo
+    estoque_medio INT NOT NULL,      -- Estoque médio
+    total_consumido INT              -- Quantidade consumida do insumo
+);
+
+-- Tabela Esqueceu_Senha
+CREATE TABLE esuqeceu_senha (
+    id INT PRIMARY KEY,      --Código da Tabela
+    email VARCHAR(255),      -- email do usuario
+    token VARCHAR(255)       -- token para redefinição de senha
+)
