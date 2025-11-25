@@ -70,4 +70,4 @@ O projeto foi construído utilizando as seguintes tecnologias:
 
 ---
 
-Made with ❤️ by Tuigg Barcelos
+
