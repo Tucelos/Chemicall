@@ -7,7 +7,7 @@ require 'PHPMailer/src/PHPMailer.php';
 require 'PHPMailer/src/SMTP.php';
 
 
-include $_SERVER['DOCUMENT_ROOT'] . "/SM/src/db/db_connection.php";
+include $_SERVER['DOCUMENT_ROOT'] . "/Chemicall_5/src/db/db_connection.php";
 
 // Verifica se o token foi passado pela URL
 if (isset($_GET['token'])) {
@@ -67,8 +67,7 @@ if (isset($_GET['token'])) {
 
 <div class="login-box">
     <center>
-    <img src="../../assets/imagens/logoSM.png" alt="Logotipo"
-    style="width: 150px; height: 50px;">
+    <h1>Chemicall</h1>
     </center>
 
     <form method="POST" id="reset-password-form">

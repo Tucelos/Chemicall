@@ -7,7 +7,7 @@ require 'PHPMailer/src/Exception.php';
 require 'PHPMailer/src/PHPMailer.php';
 require 'PHPMailer/src/SMTP.php';
 
-include $_SERVER['DOCUMENT_ROOT'] . "/SM/src/db/db_connection.php";
+include $_SERVER['DOCUMENT_ROOT'] . "/Chemicall_5/src/db/db_connection.php";
 
 // Variáveis de controle para exibir a mensagem de sucesso ou erro
 $mensagem = '';
@@ -46,9 +46,9 @@ if (isset($_POST['email'])) {
                     $mail->Port = 465; // Porta SSL 
 
                     // Remetente
-                    $mail->setFrom('no-reply@stockmanager.com', 'Redefinição de Senha');
+                    $mail->setFrom('no-reply@chemicall.com', 'Redefinição de Senha');
                     $mail->addAddress($email);  // E-mail do destinatário
-                    $mail->addReplyTo('no-reply@stockmanager.com', 'Redefinição de Senha');
+                    $mail->addReplyTo('no-reply@chemicall.com', 'Redefinição de Senha');
                     $mail->Subject = 'Redefinir Senha';
 
                     // Conteúdo do e-mail
@@ -115,7 +115,7 @@ if (isset($_POST['email'])) {
             <p>Olá,</p>
             <p>Recebemos uma solicitação para redefinir sua senha. Para continuar, clique no botão abaixo:</p>
             <center>
-            <p><a href='http://localhost:84/SM/src/telas/login/reset.php?token=$token' class='button' style='text-decoration: none;'>Redefinir Senha</a></p>
+            <p><a href='http://localhost/Chemicall_5/src/telas/login/reset.php?token=$token' class='button' style='text-decoration: none;'>Redefinir Senha</a></p>
             </center>
             <p>Se você não fez essa solicitação, pode ignorar este e-mail.</p>
         </div>
@@ -181,8 +181,8 @@ if (isset($_POST['email'])) {
     <div class="login-box">
         <center>
             <div class="logo">
-                <a href="index.php">
-                    <img src="../../assets/imagens/logoSM.png" alt="Logo" style="width: 150px; height: 50px;">
+                <a href="index.php" style="text-decoration: none; color: black;">
+                    <h1>Chemicall</h1>
                 </a>
             </div>
         </center>
