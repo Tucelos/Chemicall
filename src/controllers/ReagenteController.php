@@ -8,20 +8,29 @@ class ReagenteController {
         $this->conn = $db;
     }
 
-    public function listar($busca = '') {
+    public function listar($busca = '', $apenasControlados = false) {
         try {
             $sql = "SELECT * FROM reagentes";
+            $conditions = [];
+            $params = [];
+
             if (!empty($busca)) {
-                $sql .= " WHERE nome LIKE :busca OR formula_quimica LIKE :busca OR numero_cas LIKE :busca";
+                $conditions[] = "(nome LIKE :busca OR formula_quimica LIKE :busca OR numero_cas LIKE :busca)";
+                $params[':busca'] = "%$busca%";
             }
+
+            if ($apenasControlados) {
+                $conditions[] = "controlado = 1";
+            }
+
+            if (!empty($conditions)) {
+                $sql .= " WHERE " . implode(" AND ", $conditions);
+            }
+
             $sql .= " ORDER BY nome ASC";
             
             $stmt = $this->conn->prepare($sql);
-            if (!empty($busca)) {
-                $busca = "%$busca%";
-                $stmt->bindParam(':busca', $busca);
-            }
-            $stmt->execute();
+            $stmt->execute($params);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             return [];
@@ -51,8 +60,8 @@ class ReagenteController {
 
     public function criar($dados) {
         try {
-            $sql = "INSERT INTO reagentes (nome, formula_quimica, massa_molar, concentracao, densidade, validade, fabricante, numero_cas, numero_ncm, numero_nota_fiscal, quantidade) 
-                    VALUES (:nome, :formula, :massa, :conc, :dens, :val, :fab, :cas, :ncm, :nf, :qtd)";
+            $sql = "INSERT INTO reagentes (nome, formula_quimica, massa_molar, concentracao, densidade, validade, fabricante, numero_cas, numero_ncm, numero_nota_fiscal, quantidade, controlado) 
+                    VALUES (:nome, :formula, :massa, :conc, :dens, :val, :fab, :cas, :ncm, :nf, :qtd, :ctrl)";
             
             $stmt = $this->conn->prepare($sql);
             $stmt->execute([
@@ -66,7 +75,8 @@ class ReagenteController {
                 ':cas' => $dados['numero_cas'],
                 ':ncm' => $dados['numero_ncm'],
                 ':nf' => $dados['numero_nota_fiscal'],
-                ':qtd' => $dados['quantidade']
+                ':qtd' => $dados['quantidade'],
+                ':ctrl' => $dados['controlado']
             ]);
             
             $id = $this->conn->lastInsertId();
@@ -91,7 +101,7 @@ class ReagenteController {
                     nome = :nome, formula_quimica = :formula, massa_molar = :massa, 
                     concentracao = :conc, densidade = :dens, validade = :val, 
                     fabricante = :fab, numero_cas = :cas, 
-                    numero_ncm = :ncm, numero_nota_fiscal = :nf, quantidade = :qtd 
+                    numero_ncm = :ncm, numero_nota_fiscal = :nf, quantidade = :qtd, controlado = :ctrl 
                     WHERE id = :id";
             
             $stmt = $this->conn->prepare($sql);
@@ -108,6 +118,7 @@ class ReagenteController {
                 ':ncm' => $dados['numero_ncm'],
                 ':nf' => $dados['numero_nota_fiscal'],
                 ':qtd' => $dados['quantidade'],
+                ':ctrl' => $dados['controlado'],
                 ':id' => $id
             ]);
             

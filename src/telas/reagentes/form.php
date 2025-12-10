@@ -33,7 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'numero_cas' => $_POST['numero_cas'],
         'numero_ncm' => $_POST['numero_ncm'],
         'numero_nota_fiscal' => $_POST['numero_nota_fiscal'],
-        'quantidade' => $_POST['quantidade']
+        'quantidade' => $_POST['quantidade'],
+        'controlado' => isset($_POST['controlado']) ? 1 : 0
     ];
 
     if ($id) {
@@ -111,6 +112,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Nota Fiscal</label>
                             <input type="text" name="numero_nota_fiscal" class="form-control" value="<?php echo $reagente['numero_nota_fiscal'] ?? ''; ?>">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="controlado" id="controlado" <?php echo (isset($reagente['controlado']) && $reagente['controlado']) ? 'checked' : ''; ?>>
+                                <label class="form-check-label" for="controlado">
+                                    Produto Controlado (Polícia Federal / Exército)
+                                </label>
+                            </div>
                         </div>
                     </div>
 

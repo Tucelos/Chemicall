@@ -28,7 +28,7 @@ if ($periodo === 'all') {
 }
 
 try {
-    $sqlLog = "SELECT m.*, r.nome as reagente_nome, f.nome as usuario_nome 
+    $sqlLog = "SELECT m.*, r.nome as reagente_nome, r.controlado, r.numero_nota_fiscal, f.nome as usuario_nome 
                FROM movimentacoes m 
                LEFT JOIN reagentes r ON m.reagente_id = r.id 
                LEFT JOIN funcionario f ON m.funcionario_id = f.cod_funcionario 
@@ -79,6 +79,8 @@ $html = '
                 <th>Nome</th>
                 <th>Fórmula</th>
                 <th>Fabricante</th>
+                <th>Nota Fiscal</th>
+                <th>Controlado</th>
                 <th>Validade</th>
                 <th>Qtd</th>
             </tr>
@@ -86,7 +88,7 @@ $html = '
         <tbody>';
 
 if (empty($reagentes)) {
-    $html .= '<tr><td colspan="5" style="text-align:center;">Nenhum reagente em estoque.</td></tr>';
+    $html .= '<tr><td colspan="7" style="text-align:center;">Nenhum reagente em estoque.</td></tr>';
 } else {
     foreach ($reagentes as $r) {
         $html .= '
@@ -94,6 +96,8 @@ if (empty($reagentes)) {
                 <td>' . htmlspecialchars($r['nome']) . '</td>
                 <td>' . htmlspecialchars($r['formula_quimica']) . '</td>
                 <td>' . htmlspecialchars($r['fabricante']) . '</td>
+                <td>' . htmlspecialchars($r['numero_nota_fiscal'] ?? '-') . '</td>
+                <td>' . ($r['controlado'] ? 'Sim' : 'Não') . '</td>
                 <td>' . date('d/m/Y', strtotime($r['validade'])) . '</td>
                 <td>' . htmlspecialchars($r['quantidade']) . '</td>
             </tr>';
@@ -112,6 +116,8 @@ $html .= '
             <tr>
                 <th>Data/Hora</th>
                 <th>Reagente</th>
+                <th>Nota Fiscal</th>
+                <th>Controlado</th>
                 <th>Usuário</th>
                 <th>Ação</th>
                 <th>Qtd</th>
@@ -120,7 +126,7 @@ $html .= '
         <tbody>';
 
 if (empty($movimentacoes)) {
-    $html .= '<tr><td colspan="5" style="text-align:center;">Nenhuma movimentação encontrada neste período.</td></tr>';
+    $html .= '<tr><td colspan="7" style="text-align:center;">Nenhuma movimentação encontrada neste período.</td></tr>';
 } else {
     foreach ($movimentacoes as $m) {
         $tipoClass = '';
@@ -137,6 +143,59 @@ if (empty($movimentacoes)) {
             <tr>
                 <td>' . date('d/m/Y H:i', strtotime($m['data_hora'])) . '</td>
                 <td>' . htmlspecialchars($m['reagente_nome'] ?? 'Reagente Excluído') . '</td>
+                <td>' . htmlspecialchars($m['numero_nota_fiscal'] ?? '-') . '</td>
+                <td>' . ($m['controlado'] ? 'Sim' : 'Não') . '</td>
+                <td>' . htmlspecialchars($m['usuario_nome'] ?? 'Usuário Desconhecido') . '</td>
+                <td><span class="badge ' . $tipoClass . '">' . $tipoLabel . '</span></td>
+                <td>' . htmlspecialchars($m['quantidade']) . '</td>
+            </tr>';
+    }
+}
+
+$html .= '
+        </tbody>
+    </table>
+    </table>
+
+    <div class="page-break"></div>
+
+    <h3 class="section-title">3. Histórico de Movimentações (Apenas Produtos Controlados)</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Data/Hora</th>
+                <th>Reagente</th>
+                <th>Nota Fiscal</th>
+                <th>Usuário</th>
+                <th>Ação</th>
+                <th>Qtd</th>
+            </tr>
+        </thead>
+        <tbody>';
+
+$movimentacoesControladas = array_filter($movimentacoes, function($m) {
+    return $m['controlado'] == 1;
+});
+
+if (empty($movimentacoesControladas)) {
+    $html .= '<tr><td colspan="6" style="text-align:center;">Nenhuma movimentação de produto controlado encontrada neste período.</td></tr>';
+} else {
+    foreach ($movimentacoesControladas as $m) {
+        $tipoClass = '';
+        $tipoLabel = '';
+        switch($m['tipo_movimentacao']) {
+            case 'entrada': $tipoClass = 'bg-entrada'; $tipoLabel = 'Entrada'; break;
+            case 'saida': $tipoClass = 'bg-saida'; $tipoLabel = 'Saída'; break;
+            case 'criacao': $tipoClass = 'bg-criacao'; $tipoLabel = 'Criação'; break;
+            case 'edicao': $tipoClass = 'bg-edicao'; $tipoLabel = 'Edição'; break;
+            default: $tipoClass = 'bg-secondary'; $tipoLabel = $m['tipo_movimentacao'];
+        }
+
+        $html .= '
+            <tr>
+                <td>' . date('d/m/Y H:i', strtotime($m['data_hora'])) . '</td>
+                <td>' . htmlspecialchars($m['reagente_nome'] ?? 'Reagente Excluído') . '</td>
+                <td>' . htmlspecialchars($m['numero_nota_fiscal'] ?? '-') . '</td>
                 <td>' . htmlspecialchars($m['usuario_nome'] ?? 'Usuário Desconhecido') . '</td>
                 <td><span class="badge ' . $tipoClass . '">' . $tipoLabel . '</span></td>
                 <td>' . htmlspecialchars($m['quantidade']) . '</td>

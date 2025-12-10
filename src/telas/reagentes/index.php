@@ -11,7 +11,8 @@ if (!$auth->isAuthenticated()) {
 
 $reagenteController = new ReagenteController($conn);
 $busca = $_GET['busca'] ?? '';
-$reagentes = $reagenteController->listar($busca);
+$apenasControlados = isset($_GET['controlado']) && $_GET['controlado'] == '1';
+$reagentes = $reagenteController->listar($busca, $apenasControlados);
 $isAdmin = $auth->isAdmin();
 ?>
 
@@ -37,10 +38,18 @@ $isAdmin = $auth->isAdmin();
 
         <div class="card mb-4">
             <div class="card-body">
-                <form method="GET" class="d-flex gap-2">
-                    <input type="text" name="busca" class="form-control" placeholder="Buscar por nome, fórmula ou CAS..." value="<?php echo htmlspecialchars($busca); ?>">
+                <form method="GET" class="d-flex gap-2 align-items-center flex-wrap">
+                    <input type="text" name="busca" class="form-control w-auto" placeholder="Buscar por nome, fórmula ou CAS..." value="<?php echo htmlspecialchars($busca); ?>">
+                    
+                    <div class="form-check ms-2">
+                        <input class="form-check-input" type="checkbox" name="controlado" value="1" id="checkControlado" <?php echo $apenasControlados ? 'checked' : ''; ?> onchange="this.form.submit()">
+                        <label class="form-check-label" for="checkControlado">
+                            Apenas Controlados
+                        </label>
+                    </div>
+
                     <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Buscar</button>
-                    <?php if ($busca): ?>
+                    <?php if ($busca || $apenasControlados): ?>
                         <a href="index.php" class="btn btn-secondary">Limpar</a>
                     <?php endif; ?>
                 </form>
@@ -61,6 +70,7 @@ $isAdmin = $auth->isAdmin();
                         <th>Nome</th>
                         <th>Fórmula</th>
                         <th>CAS</th>
+                        <th>Controlado</th>
                         <th>Validade</th>
                         <th>Qtd</th>
                         <th>Ações</th>
@@ -69,7 +79,7 @@ $isAdmin = $auth->isAdmin();
                 <tbody>
                     <?php if (empty($reagentes)): ?>
                         <tr>
-                            <td colspan="7" class="text-center">Nenhum reagente encontrado.</td>
+                            <td colspan="8" class="text-center">Nenhum reagente encontrado.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($reagentes as $r): ?>
@@ -77,6 +87,13 @@ $isAdmin = $auth->isAdmin();
                                 <td><?php echo htmlspecialchars($r['nome']); ?></td>
                                 <td><?php echo htmlspecialchars($r['formula_quimica']); ?></td>
                                 <td><?php echo htmlspecialchars($r['numero_cas']); ?></td>
+                                <td>
+                                    <?php if ($r['controlado']): ?>
+                                        <span class="badge bg-danger">Sim</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-secondary">Não</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?php echo date('d/m/Y', strtotime($r['validade'])); ?></td>
                                 <td>
                                     <span class="badge bg-secondary fs-6"><?php echo htmlspecialchars($r['quantidade']); ?></span>
