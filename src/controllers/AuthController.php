@@ -40,5 +40,9 @@ class AuthController {
     public function isAdmin() {
         return isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin';
     }
+
+    public function isGestor() {
+        return isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'gestor';
+    }
 }
 ?>

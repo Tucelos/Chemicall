@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../controllers/ReagenteController.php';
 require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated() || !$auth->isAdmin()) {
+if (!$auth->isAuthenticated() || (!$auth->isAdmin() && !$auth->isGestor())) {
     header('Location: index.php');
     exit();
 }
@@ -34,6 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'numero_ncm' => $_POST['numero_ncm'],
         'numero_nota_fiscal' => $_POST['numero_nota_fiscal'],
         'quantidade' => $_POST['quantidade'],
+        'unidade_medida' => $_POST['unidade_medida'] ?? 'frasco',
+        'capacidade_medida' => !empty($_POST['capacidade_medida']) ? $_POST['capacidade_medida'] : null,
+        'unidade_capacidade' => $_POST['unidade_capacidade'] ?? 'ml',
         'controlado' => isset($_POST['controlado']) ? 1 : 0
     ];
 
@@ -138,9 +141,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Quantidade (Unidades) *</label>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Unidade de Medida *</label>
+                            <select name="unidade_medida" id="unidade_medida" class="form-select" required>
+                                <?php 
+                                $unidades = [
+                                    'frasco' => 'Frasco',
+                                    'galão' => 'Galão',
+                                    'litro' => 'Litro',
+                                    'ml' => 'mL',
+                                    'kg' => 'Kg',
+                                    'g' => 'g',
+                                    'mg' => 'mg'
+                                ];
+                                $selectedUnidade = $reagente['unidade_medida'] ?? 'frasco';
+                                foreach ($unidades as $val => $lbl):
+                                ?>
+                                    <option value="<?php echo $val; ?>" <?php echo $selectedUnidade === $val ? 'selected' : ''; ?>><?php echo $lbl; ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label" id="label_quantidade">Quantidade *</label>
                             <input type="number" name="quantidade" class="form-control" required value="<?php echo $reagente['quantidade'] ?? '0'; ?>">
+                        </div>
+                        <div class="col-md-4 mb-3" id="container_capacidade">
+                            <label class="form-label">Capacidade por Unidade *</label>
+                            <div class="input-group">
+                                <input type="number" step="0.01" name="capacidade_medida" id="capacidade_medida" class="form-control" value="<?php echo $reagente['capacidade_medida'] ?? ''; ?>">
+                                <select name="unidade_capacidade" id="unidade_capacidade" class="form-select" style="max-width: 90px;">
+                                    <?php 
+                                    $uni_caps = ['ml' => 'mL', 'g' => 'g'];
+                                    $selectedUniCap = $reagente['unidade_capacidade'] ?? 'ml';
+                                    foreach ($uni_caps as $val => $lbl):
+                                    ?>
+                                        <option value="<?php echo $val; ?>" <?php echo $selectedUniCap === $val ? 'selected' : ''; ?>><?php echo $lbl; ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -248,6 +286,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             .finally(() => {
                 btn.disabled = false;
             });
+    });
+    </script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const unidadeSelect = document.getElementById('unidade_medida');
+        const containerCapacidade = document.getElementById('container_capacidade');
+        const inputCapacidade = document.getElementById('capacidade_medida');
+        const labelQuantidade = document.getElementById('label_quantidade');
+
+        function toggleCapacidade() {
+            const val = unidadeSelect.value;
+            if (val === 'frasco' || val === 'galão' || val === 'litro') {
+                containerCapacidade.style.display = 'block';
+                inputCapacidade.setAttribute('required', 'required');
+                
+                // Adjust label text
+                let labelText = 'Quantidade (de Frascos) *';
+                if (val === 'galão') labelText = 'Quantidade (de Galões) *';
+                if (val === 'litro') labelText = 'Quantidade (de Litros) *';
+                labelQuantidade.textContent = labelText;
+            } else {
+                containerCapacidade.style.display = 'none';
+                inputCapacidade.removeAttribute('required');
+                inputCapacidade.value = '';
+                
+                // Adjust label text
+                labelQuantidade.textContent = 'Quantidade total *';
+            }
+        }
+
+        unidadeSelect.addEventListener('change', toggleCapacidade);
+        toggleCapacidade(); // Run on load
     });
     </script>
 </body>

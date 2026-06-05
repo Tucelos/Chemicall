@@ -11,7 +11,6 @@ erDiagram
 
     funcionario {
         int cod_funcionario PK "Chave Primária"
-        string login_funcionario "Login do usuário"
         string senha "Hash da senha"
         string nome "Nome completo"
         string email "Endereço de e-mail"
@@ -50,7 +49,6 @@ erDiagram
 ### Tabela: `funcionario`
 Responsável por armazenar os dados de autenticação e identificação dos usuários do sistema.
 - **cod_funcionario**: Identificador único do funcionário.
-- **login_funcionario**: Nome de usuário para acesso.
 - **senha**: Senha criptografada.
 - **nome**: Nome real do funcionário.
 - **email**: E-mail de contato.

@@ -70,7 +70,7 @@ $userType = $_SESSION['user_type'] ?? 'docente';
                         <i class="fas fa-boxes"></i> Estoque
                     </a>
                 </li>
-                <?php if ($userType === 'admin'): ?>
+                <?php if ($userType === 'admin' || $userType === 'gestor'): ?>
                 <li class="nav-item">
                     <a class="nav-link" href="../relatorio/relatorios.php">
                         <i class="fas fa-file-alt"></i> Relatórios

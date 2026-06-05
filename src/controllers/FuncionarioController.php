@@ -17,15 +17,8 @@ class FuncionarioController {
                 return ['success' => false, 'message' => 'Email já cadastrado.'];
             }
 
-            // Verificar se login já existe
-            $stmt = $this->conn->prepare("SELECT cod_funcionario FROM funcionario WHERE login_funcionario = :login");
-            $stmt->execute([':login' => $dados['login']]);
-            if ($stmt->rowCount() > 0) {
-                return ['success' => false, 'message' => 'Login já cadastrado.'];
-            }
-
-            $sql = "INSERT INTO funcionario (nome, email, login_funcionario, senha, tipo) 
-                    VALUES (:nome, :email, :login, :senha, :tipo)";
+            $sql = "INSERT INTO funcionario (nome, email, senha, tipo, acesso_controlados) 
+                    VALUES (:nome, :email, :senha, :tipo, :acesso_controlados)";
             
             $stmt = $this->conn->prepare($sql);
             $senhaHash = password_hash($dados['senha'], PASSWORD_DEFAULT);
@@ -33,9 +26,9 @@ class FuncionarioController {
             $stmt->execute([
                 ':nome' => $dados['nome'],
                 ':email' => $dados['email'],
-                ':login' => $dados['login'],
                 ':senha' => $senhaHash,
-                ':tipo' => $dados['tipo']
+                ':tipo' => $dados['tipo'],
+                ':acesso_controlados' => $dados['acesso_controlados'] ?? 0
             ]);
             
             return ['success' => true, 'message' => 'Usuário cadastrado com sucesso!'];
@@ -65,17 +58,17 @@ class FuncionarioController {
 
     public function atualizar($id, $dados) {
         try {
-            $sql = "UPDATE funcionario SET nome = :nome, email = :email, login_funcionario = :login, tipo = :tipo WHERE cod_funcionario = :id";
+            $sql = "UPDATE funcionario SET nome = :nome, email = :email, tipo = :tipo, acesso_controlados = :acesso_controlados WHERE cod_funcionario = :id";
             $params = [
                 ':nome' => $dados['nome'],
                 ':email' => $dados['email'],
-                ':login' => $dados['login'],
                 ':tipo' => $dados['tipo'],
+                ':acesso_controlados' => $dados['acesso_controlados'] ?? 0,
                 ':id' => $id
             ];
 
             if (!empty($dados['senha'])) {
-                $sql = "UPDATE funcionario SET nome = :nome, email = :email, login_funcionario = :login, senha = :senha, tipo = :tipo WHERE cod_funcionario = :id";
+                $sql = "UPDATE funcionario SET nome = :nome, email = :email, senha = :senha, tipo = :tipo, acesso_controlados = :acesso_controlados WHERE cod_funcionario = :id";
                 $params[':senha'] = password_hash($dados['senha'], PASSWORD_DEFAULT);
             }
 

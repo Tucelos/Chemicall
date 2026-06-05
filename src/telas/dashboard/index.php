@@ -66,7 +66,7 @@ $userType = $_SESSION['user_type'] ?? 'docente';
     <div class="container">
         <div class="row g-4 justify-content-center">
             <!-- Card: Novo Reagente -->
-            <?php if ($userType === 'admin'): ?>
+            <?php if ($userType === 'admin' || $userType === 'gestor'): ?>
             <div class="col-md-6 col-lg-3">
                 <a href="../reagentes/form.php" class="text-decoration-none">
                     <div class="card card-action p-4 text-center">
@@ -98,7 +98,7 @@ $userType = $_SESSION['user_type'] ?? 'docente';
             </div>
 
             <!-- Card: Relatórios -->
-            <?php if ($userType === 'admin'): ?>
+            <?php if ($userType === 'admin' || $userType === 'gestor'): ?>
             <div class="col-md-6 col-lg-3">
                 <a href="../relatorio/relatorios.php" class="text-decoration-none">
                     <div class="card card-action p-4 text-center">

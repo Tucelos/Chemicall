@@ -4,16 +4,38 @@ require_once __DIR__ . '/../../../db/db_connection.php';
 require_once 'dompdf/autoload.inc.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated() || !$auth->isAdmin()) {
+if (!$auth->isAuthenticated() || (!$auth->isAdmin() && !$auth->isGestor())) {
     header('Location: ../../dashboard/index.php');
     exit();
 }
 
 use Dompdf\Dompdf;
 
+// Helper para formatar a quantidade
+function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeCapacidade = 'ml') {
+    if (empty($unidade)) {
+        return $quantidade;
+    }
+    $unidadePlural = $unidade;
+    switch (strtolower($unidade)) {
+        case 'galão': $unidadePlural = $quantidade > 1 ? 'Galões' : 'Galão'; break;
+        case 'frasco': $unidadePlural = $quantidade > 1 ? 'Frascos' : 'Frasco'; break;
+        case 'litro': $unidadePlural = $quantidade > 1 ? 'Litros' : 'Litro'; break;
+        case 'ml': $unidadePlural = 'mL'; break;
+        case 'kg': $unidadePlural = 'Kg'; break;
+        case 'g': $unidadePlural = 'g'; break;
+        case 'mg': $unidadePlural = 'mg'; break;
+    }
+    if (!empty($capacidade) && $capacidade > 0) {
+        $cap = (float)$capacidade;
+        return "{$quantidade} {$unidadePlural} ({$cap} {$unidadeCapacidade})";
+    }
+    return "{$quantidade} {$unidadePlural}";
+}
+
 // 1. Fetch Current Stock
 try {
-    $sqlStock = "SELECT * FROM reagentes ORDER BY nome ASC";
+    $sqlStock = "SELECT * FROM reagentes WHERE ativo = 1 AND quantidade > 0 ORDER BY nome ASC, validade ASC";
     $stmtStock = $conn->query($sqlStock);
     $reagentes = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -35,7 +57,7 @@ if ($periodo === 'all') {
 }
 
 try {
-    $sqlLog = "SELECT m.*, r.nome as reagente_nome, r.controlado, r.numero_nota_fiscal, f.nome as usuario_nome 
+    $sqlLog = "SELECT m.*, r.nome as reagente_nome, r.controlado, r.numero_nota_fiscal, r.unidade_medida, r.capacidade_medida, r.unidade_capacidade, f.nome as usuario_nome 
                FROM movimentacoes m 
                LEFT JOIN reagentes r ON m.reagente_id = r.id 
                LEFT JOIN funcionario f ON m.funcionario_id = f.cod_funcionario 
@@ -106,7 +128,7 @@ if (empty($reagentes)) {
                 <td>' . htmlspecialchars($r['numero_nota_fiscal'] ?? '-') . '</td>
                 <td>' . ($r['controlado'] ? 'Sim' : 'Não') . '</td>
                 <td>' . date('d/m/Y', strtotime($r['validade'])) . '</td>
-                <td>' . htmlspecialchars($r['quantidade']) . '</td>
+                <td>' . formatarQuantidade($r['quantidade'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']) . '</td>
             </tr>';
     }
 }
@@ -143,7 +165,13 @@ if (empty($movimentacoes)) {
             case 'saida': $tipoClass = 'bg-saida'; $tipoLabel = 'Saída'; break;
             case 'criacao': $tipoClass = 'bg-criacao'; $tipoLabel = 'Criação'; break;
             case 'edicao': $tipoClass = 'bg-edicao'; $tipoLabel = 'Edição'; break;
-            default: $tipoClass = 'bg-secondary'; $tipoLabel = $m['tipo_movimentacao'];
+            case 'exclusao': $tipoClass = 'bg-saida'; $tipoLabel = 'Exclusão'; break;
+            default: $tipoClass = 'bg-secondary'; $tipoLabel = ucfirst($m['tipo_movimentacao']);
+        }
+
+        $motivoTexto = '';
+        if ($m['tipo_movimentacao'] === 'saida' && !empty($m['motivo_retirada'])) {
+            $motivoTexto = '<br><small style="color: #666; font-size: 0.8em;">Motivo: ' . htmlspecialchars($m['motivo_retirada']) . '</small>';
         }
 
         $html .= '
@@ -153,8 +181,8 @@ if (empty($movimentacoes)) {
                 <td>' . htmlspecialchars($m['numero_nota_fiscal'] ?? '-') . '</td>
                 <td>' . ($m['controlado'] ? 'Sim' : 'Não') . '</td>
                 <td>' . htmlspecialchars($m['usuario_nome'] ?? 'Usuário Desconhecido') . '</td>
-                <td><span class="badge ' . $tipoClass . '">' . $tipoLabel . '</span></td>
-                <td>' . htmlspecialchars($m['quantidade']) . '</td>
+                <td><span class="badge ' . $tipoClass . '">' . $tipoLabel . '</span>' . $motivoTexto . '</td>
+                <td>' . formatarQuantidade($m['quantidade'], $m['unidade_medida'], $m['capacidade_medida'], $m['unidade_capacidade']) . '</td>
             </tr>';
     }
 }
@@ -195,7 +223,13 @@ if (empty($movimentacoesControladas)) {
             case 'saida': $tipoClass = 'bg-saida'; $tipoLabel = 'Saída'; break;
             case 'criacao': $tipoClass = 'bg-criacao'; $tipoLabel = 'Criação'; break;
             case 'edicao': $tipoClass = 'bg-edicao'; $tipoLabel = 'Edição'; break;
-            default: $tipoClass = 'bg-secondary'; $tipoLabel = $m['tipo_movimentacao'];
+            case 'exclusao': $tipoClass = 'bg-saida'; $tipoLabel = 'Exclusão'; break;
+            default: $tipoClass = 'bg-secondary'; $tipoLabel = ucfirst($m['tipo_movimentacao']);
+        }
+
+        $motivoTexto = '';
+        if ($m['tipo_movimentacao'] === 'saida' && !empty($m['motivo_retirada'])) {
+            $motivoTexto = '<br><small style="color: #666; font-size: 0.8em;">Motivo: ' . htmlspecialchars($m['motivo_retirada']) . '</small>';
         }
 
         $html .= '
@@ -204,8 +238,8 @@ if (empty($movimentacoesControladas)) {
                 <td>' . htmlspecialchars($m['reagente_nome'] ?? 'Reagente Excluído') . '</td>
                 <td>' . htmlspecialchars($m['numero_nota_fiscal'] ?? '-') . '</td>
                 <td>' . htmlspecialchars($m['usuario_nome'] ?? 'Usuário Desconhecido') . '</td>
-                <td><span class="badge ' . $tipoClass . '">' . $tipoLabel . '</span></td>
-                <td>' . htmlspecialchars($m['quantidade']) . '</td>
+                <td><span class="badge ' . $tipoClass . '">' . $tipoLabel . '</span>' . $motivoTexto . '</td>
+                <td>' . formatarQuantidade($m['quantidade'], $m['unidade_medida'], $m['capacidade_medida'], $m['unidade_capacidade']) . '</td>
             </tr>';
     }
 }

@@ -56,8 +56,8 @@ if (isset($_POST['delete_id'])) {
                                 <th>ID</th>
                                 <th>Nome</th>
                                 <th>Email</th>
-                                <th>Login</th>
                                 <th>Tipo</th>
+                                <th>Acesso Controlados</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
@@ -67,11 +67,30 @@ if (isset($_POST['delete_id'])) {
                                 <td><?php echo htmlspecialchars($user['cod_funcionario']); ?></td>
                                 <td><?php echo htmlspecialchars($user['nome']); ?></td>
                                 <td><?php echo htmlspecialchars($user['email']); ?></td>
-                                <td><?php echo htmlspecialchars($user['login_funcionario']); ?></td>
                                 <td>
-                                    <span class="badge bg-<?php echo $user['tipo'] === 'admin' ? 'danger' : 'primary'; ?>">
-                                        <?php echo ucfirst($user['tipo']); ?>
+                                    <?php 
+                                    $badgeColor = 'primary';
+                                    $tipoLabel = 'Usuário';
+                                    if ($user['tipo'] === 'admin') {
+                                        $badgeColor = 'danger';
+                                        $tipoLabel = 'Administrador';
+                                    } elseif ($user['tipo'] === 'gestor') {
+                                        $badgeColor = 'success';
+                                        $tipoLabel = 'Gestor';
+                                    }
+                                    ?>
+                                    <span class="badge bg-<?php echo $badgeColor; ?>">
+                                        <?php echo $tipoLabel; ?>
                                     </span>
+                                </td>
+                                <td>
+                                    <?php if ($user['tipo'] === 'admin' || $user['tipo'] === 'gestor'): ?>
+                                        <span class="badge bg-success">Sim (Acesso Total)</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-<?php echo (isset($user['acesso_controlados']) && $user['acesso_controlados'] == 1) ? 'success' : 'secondary'; ?>">
+                                            <?php echo (isset($user['acesso_controlados']) && $user['acesso_controlados'] == 1) ? 'Sim' : 'Não'; ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
                                     <a href="editar.php?id=<?php echo $user['cod_funcionario']; ?>" class="btn btn-sm btn-warning" title="Editar">

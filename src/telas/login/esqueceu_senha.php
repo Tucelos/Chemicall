@@ -48,10 +48,10 @@ if (isset($_POST['email'])) {
                 try {
                     // Configuração do servidor SMTP
                     $mail->isSMTP();  // Define que estamos usando SMTP
-                    $mail->Host = $_ENV['SMTP_HOST'] ?? 'smtp.gmail.com';
+                    $mail->Host = $_ENV['SMTP_HOST'] ?? '';
                     $mail->SMTPAuth = true;  // Ativa autenticação SMTP
-                    $mail->Username = $_ENV['SMTP_USER'] ?? 'anacarol.farias11@gmail.com';
-                    $mail->Password = $_ENV['SMTP_PASS'] ?? 'gynaefjniclkgnly';
+                    $mail->Username = $_ENV['SMTP_USER'] ?? '';
+                    $mail->Password = $_ENV['SMTP_PASS'] ?? '';
                     
                     $smtpSecure = strtolower($_ENV['SMTP_SECURE'] ?? 'ssl');
                     if ($smtpSecure === 'tls') {

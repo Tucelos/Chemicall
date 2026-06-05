@@ -28,11 +28,11 @@
     <?php
     include "../../db/db_connection.php";
 
-// Verify admin access
+// Verify admin or gestor access
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
+if (!isset($_SESSION['user_type']) || ($_SESSION['user_type'] !== 'admin' && $_SESSION['user_type'] !== 'gestor')) {
     header('Location: ../dashboard/index.php');
     exit();
 }

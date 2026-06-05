@@ -40,7 +40,7 @@ if (file_exists($envPath)) {
 
 $servername = $_ENV['DB_HOST'] ?? "localhost";
 $username = $_ENV['DB_USER'] ?? "root";
-$password = $_ENV['DB_PASS'] ?? "F4009075f@";
+$password = $_ENV['DB_PASS'] ?? "";
 $dbname = $_ENV['DB_NAME'] ?? "chemicall";
 
 // PDO Connection

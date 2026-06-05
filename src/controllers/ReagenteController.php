@@ -8,11 +8,37 @@ class ReagenteController {
         $this->conn = $db;
     }
 
-    public function listar($busca = '', $apenasControlados = false) {
+    public function listar($busca = '', $apenasControlados = false, $apenasUtilizados = false) {
         try {
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            $isAdmin = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin';
+            $isGestor = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'gestor';
+            
+            // Verificar permissão de acesso a produtos controlados
+            $hasAccessControlados = false;
+            if ($isAdmin || $isGestor) {
+                $hasAccessControlados = true;
+            } else {
+                $funcionarioId = $_SESSION['user_id'] ?? null;
+                if ($funcionarioId) {
+                    $stmtUser = $this->conn->prepare("SELECT acesso_controlados FROM funcionario WHERE cod_funcionario = :id");
+                    $stmtUser->execute([':id' => $funcionarioId]);
+                    $userData = $stmtUser->fetch(PDO::FETCH_ASSOC);
+                    $hasAccessControlados = $userData && $userData['acesso_controlados'] == 1;
+                }
+            }
+
             $sql = "SELECT * FROM reagentes";
-            $conditions = [];
+            $conditions = ["ativo = 1"];
             $params = [];
+
+            if ($apenasUtilizados) {
+                $conditions[] = "quantidade = 0";
+            } else {
+                $conditions[] = "quantidade > 0";
+            }
 
             if (!empty($busca)) {
                 $conditions[] = "(nome LIKE :busca OR formula_quimica LIKE :busca OR numero_cas LIKE :busca)";
@@ -23,11 +49,16 @@ class ReagenteController {
                 $conditions[] = "controlado = 1";
             }
 
+            // Se o usuário não tiver permissão para controlados, esconde
+            if (!$hasAccessControlados) {
+                $conditions[] = "controlado = 0";
+            }
+
             if (!empty($conditions)) {
                 $sql .= " WHERE " . implode(" AND ", $conditions);
             }
 
-            $sql .= " ORDER BY nome ASC";
+            $sql .= " ORDER BY nome ASC, validade ASC";
             
             $stmt = $this->conn->prepare($sql);
             $stmt->execute($params);
@@ -37,7 +68,7 @@ class ReagenteController {
         }
     }
 
-    private function registrarLog($reagenteId, $tipo, $quantidade) {
+    private function registrarLog($reagenteId, $tipo, $quantidade, $motivo = null) {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
@@ -45,12 +76,13 @@ class ReagenteController {
         
         if ($funcionarioId) {
             try {
-                $stmt = $this->conn->prepare("INSERT INTO movimentacoes (reagente_id, funcionario_id, tipo_movimentacao, quantidade) VALUES (:rid, :fid, :tipo, :qtd)");
+                $stmt = $this->conn->prepare("INSERT INTO movimentacoes (reagente_id, funcionario_id, tipo_movimentacao, quantidade, motivo_retirada) VALUES (:rid, :fid, :tipo, :qtd, :motivo)");
                 $stmt->execute([
                     ':rid' => $reagenteId,
                     ':fid' => $funcionarioId,
                     ':tipo' => $tipo,
-                    ':qtd' => $quantidade
+                    ':qtd' => $quantidade,
+                    ':motivo' => $motivo
                 ]);
             } catch (PDOException $e) {
                 // Silently fail logging to not disrupt operation, or log to file
@@ -60,8 +92,8 @@ class ReagenteController {
 
     public function criar($dados) {
         try {
-            $sql = "INSERT INTO reagentes (nome, formula_quimica, massa_molar, concentracao, densidade, validade, fabricante, numero_cas, numero_ncm, numero_nota_fiscal, quantidade, controlado) 
-                    VALUES (:nome, :formula, :massa, :conc, :dens, :val, :fab, :cas, :ncm, :nf, :qtd, :ctrl)";
+            $sql = "INSERT INTO reagentes (nome, formula_quimica, massa_molar, concentracao, densidade, validade, fabricante, numero_cas, numero_ncm, numero_nota_fiscal, quantidade, quantidade_original, unidade_medida, capacidade_medida, unidade_capacidade, controlado) 
+                    VALUES (:nome, :formula, :massa, :conc, :dens, :val, :fab, :cas, :ncm, :nf, :qtd, :qtd_orig, :unidade, :capacidade, :uni_cap, :ctrl)";
             
             $stmt = $this->conn->prepare($sql);
             $stmt->execute([
@@ -76,6 +108,10 @@ class ReagenteController {
                 ':ncm' => $dados['numero_ncm'],
                 ':nf' => $dados['numero_nota_fiscal'],
                 ':qtd' => $dados['quantidade'],
+                ':qtd_orig' => $dados['quantidade'],
+                ':unidade' => $dados['unidade_medida'] ?? 'frasco',
+                ':capacidade' => $dados['capacidade_medida'] ?? null,
+                ':uni_cap' => $dados['unidade_capacidade'] ?? 'ml',
                 ':ctrl' => $dados['controlado']
             ]);
             
@@ -101,11 +137,12 @@ class ReagenteController {
                     nome = :nome, formula_quimica = :formula, massa_molar = :massa, 
                     concentracao = :conc, densidade = :dens, validade = :val, 
                     fabricante = :fab, numero_cas = :cas, 
-                    numero_ncm = :ncm, numero_nota_fiscal = :nf, quantidade = :qtd, controlado = :ctrl 
+                    numero_ncm = :ncm, numero_nota_fiscal = :nf, quantidade = :qtd, 
+                    unidade_medida = :unidade, capacidade_medida = :capacidade, unidade_capacidade = :uni_cap,
+                    controlado = :ctrl 
                     WHERE id = :id";
             
             $stmt = $this->conn->prepare($sql);
-            $dados['id'] = $id;
             $stmt->execute([
                 ':nome' => $dados['nome'],
                 ':formula' => $dados['formula_quimica'],
@@ -118,6 +155,9 @@ class ReagenteController {
                 ':ncm' => $dados['numero_ncm'],
                 ':nf' => $dados['numero_nota_fiscal'],
                 ':qtd' => $dados['quantidade'],
+                ':unidade' => $dados['unidade_medida'] ?? 'frasco',
+                ':capacidade' => $dados['capacidade_medida'] ?? null,
+                ':uni_cap' => $dados['unidade_capacidade'] ?? 'ml',
                 ':ctrl' => $dados['controlado'],
                 ':id' => $id
             ]);
@@ -134,13 +174,15 @@ class ReagenteController {
         try {
             $this->conn->beginTransaction();
 
-            // Delete related logs first
-            $stmtLogs = $this->conn->prepare("DELETE FROM movimentacoes WHERE reagente_id = :id");
-            $stmtLogs->bindParam(':id', $id);
-            $stmtLogs->execute();
+            // Fetch the reagent first to log the current remaining quantity at deletion time
+            $reagente = $this->buscarPorId($id);
+            if ($reagente) {
+                // Record the deletion event as a movement log entry with type 'exclusao'
+                $this->registrarLog($id, 'exclusao', $reagente['quantidade']);
+            }
 
-            // Then delete the reagent
-            $stmt = $this->conn->prepare("DELETE FROM reagentes WHERE id = :id");
+            // Mark the reagent as inactive (soft delete)
+            $stmt = $this->conn->prepare("UPDATE reagentes SET ativo = 0 WHERE id = :id");
             $stmt->bindParam(':id', $id);
             $stmt->execute();
 
@@ -152,15 +194,38 @@ class ReagenteController {
         }
     }
 
-    public function atualizarQuantidade($id, $quantidade, $operacao) {
+    public function atualizarQuantidade($id, $quantidade, $operacao, $motivo = null) {
         try {
-            // Primeiro busca a quantidade atual
-            $stmt = $this->conn->prepare("SELECT quantidade FROM reagentes WHERE id = :id");
+            // Primeiro busca a quantidade atual e se é controlado
+            $stmt = $this->conn->prepare("SELECT quantidade, controlado FROM reagentes WHERE id = :id");
             $stmt->bindParam(':id', $id);
             $stmt->execute();
             $atual = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$atual) return false;
+
+            // Se for produto controlado, verifica se o usuário logado tem permissão
+            if ($atual['controlado'] == 1) {
+                if (session_status() === PHP_SESSION_NONE) {
+                    session_start();
+                }
+                $isAdmin = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin';
+                $hasAccessControlados = false;
+                if ($isAdmin) {
+                    $hasAccessControlados = true;
+                } else {
+                    $funcionarioId = $_SESSION['user_id'] ?? null;
+                    if ($funcionarioId) {
+                        $stmtUser = $this->conn->prepare("SELECT acesso_controlados FROM funcionario WHERE cod_funcionario = :id");
+                        $stmtUser->execute([':id' => $funcionarioId]);
+                        $userData = $stmtUser->fetch(PDO::FETCH_ASSOC);
+                        $hasAccessControlados = $userData && $userData['acesso_controlados'] == 1;
+                    }
+                }
+                if (!$hasAccessControlados) {
+                    return false; // Acesso negado para produtos controlados
+                }
+            }
 
             $novaQuantidade = $atual['quantidade'];
             $tipoMovimentacao = '';
@@ -180,7 +245,7 @@ class ReagenteController {
                 ':id' => $id
             ]);
             
-            $this->registrarLog($id, $tipoMovimentacao, $quantidade);
+            $this->registrarLog($id, $tipoMovimentacao, $quantidade, $motivo);
             
             return true;
         } catch (PDOException $e) {
