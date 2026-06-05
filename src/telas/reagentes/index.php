@@ -127,14 +127,16 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                             <th>Concentração</th>
                             <th>Controlado</th>
                             <th>Validade</th>
-                            <th>Quantidade</th>
+                            <th>Unidade</th>
+                            <th>Capacidade</th>
+                            <th>Qtd.</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($reagentes)): ?>
                             <tr>
-                                <td colspan="8" class="text-center">Nenhum reagente encontrado no estoque.</td>
+                                <td colspan="10" class="text-center">Nenhum reagente encontrado no estoque.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($reagentes as $r): ?>
@@ -153,8 +155,10 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                                         <?php endif; ?>
                                     </td>
                                     <td><?php echo date('d/m/Y', strtotime($r['validade'])); ?></td>
+                                    <td><?php echo htmlspecialchars($r['unidade_medida']); ?></td>
+                                    <td><?php echo htmlspecialchars($r['capacidade_medida'] !== null && $r['capacidade_medida'] > 0 ? ((float)$r['capacidade_medida']) . ' ' . $r['unidade_capacidade'] : '-'); ?></td>
                                     <td>
-                                        <span class="badge bg-dark fs-6"><?php echo formatarQuantidade($r['quantidade'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']); ?></span>
+                                        <span class="badge bg-dark fs-6"><?php echo (float)$r['quantidade']; ?></span>
                                     </td>
                                     <td>
                                         <div class="btn-group" role="group">

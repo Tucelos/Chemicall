@@ -76,6 +76,11 @@ $userType = $_SESSION['user_type'] ?? 'docente';
                         <i class="fas fa-file-alt"></i> Relatórios
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="../relatorio/estatisticas.php">
+                        <i class="fas fa-chart-pie"></i> Estatísticas
+                    </a>
+                </li>
                 <?php endif; ?>
                 <?php if ($userType === 'admin'): ?>
                 <li class="nav-item">

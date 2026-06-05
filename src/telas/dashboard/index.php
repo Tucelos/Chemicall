@@ -107,7 +107,22 @@ $userType = $_SESSION['user_type'] ?? 'docente';
                                 <i class="fas fa-file-alt"></i>
                             </div>
                             <h5 class="card-title">Relatórios</h5>
-                            <p class="card-text text-muted">Visualizar relatórios e estatísticas</p>
+                            <p class="card-text text-muted">Gerar PDF de inventário e logs</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Estatísticas -->
+            <div class="col-md-6 col-lg-3">
+                <a href="../relatorio/estatisticas.php" class="text-decoration-none">
+                    <div class="card card-action p-4 text-center">
+                        <div class="card-body">
+                            <div class="card-icon">
+                                <i class="fas fa-chart-pie"></i>
+                            </div>
+                            <h5 class="card-title">Estatísticas</h5>
+                            <p class="card-text text-muted">Visualizar consumo e gráficos</p>
                         </div>
                     </div>
                 </a>
