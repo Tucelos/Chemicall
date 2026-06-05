@@ -12,7 +12,7 @@ Se você descobrir uma vulnerabilidade de segurança neste projeto, por favor **
 2. No e-mail, inclua uma descrição detalhada do problema, incluindo:
    - Passos para reproduzir a vulnerabilidade (Proof of Concept).
    - O impacto potencial da falha.
-   - Qualquer sugestão de correção.
+   - Qualquer sugestão de correção ou melhoria.
 3. Faremos o possível para responder e avaliar o relatório o mais rápido possível e definir um plano de mitigação.
 
 ---
