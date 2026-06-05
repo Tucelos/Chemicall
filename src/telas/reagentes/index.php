@@ -413,6 +413,15 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body text-start">
+                            <div class="mb-4 pb-3 border-bottom bg-light p-3 rounded">
+                                <label class="form-label fw-bold text-secondary mb-1">Aplicar a mesma quantidade para todos</label>
+                                <div class="input-group">
+                                    <input type="number" id="bulk_apply_all_qty" class="form-control" placeholder="Ex: 5" min="0" step="any">
+                                    <button class="btn btn-warning text-dark fw-bold" type="button" id="btn_apply_all_qty">Aplicar</button>
+                                </div>
+                                <div class="form-text text-muted" style="font-size:0.75rem;">Preenche a quantidade de todos os itens da lista abaixo (respeitando o estoque máximo individual).</div>
+                            </div>
+
                             <div id="bulkWithdrawItemsList">
                                 <!-- Dynamic content populated by JS -->
                             </div>
@@ -549,8 +558,14 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
 
         // Popular modal de retirada em lote
         const bulkWithdrawModal = document.getElementById('bulkWithdrawModal');
+        const inputApplyAll = document.getElementById('bulk_apply_all_qty');
+        const btnApplyAll = document.getElementById('btn_apply_all_qty');
+
         if (bulkWithdrawModal) {
             bulkWithdrawModal.addEventListener('show.bs.modal', function () {
+                if (inputApplyAll) {
+                    inputApplyAll.value = '';
+                }
                 const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
                 const container = document.getElementById('bulkWithdrawItemsList');
                 container.innerHTML = '';
@@ -571,11 +586,28 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                     const itemHtml = `
                         <div class="mb-3 border-bottom pb-3">
                             <label class="form-label fw-bold mb-1">${nome} <span class="text-muted" style="font-size:0.85rem;">(Estoque: ${fmtInfo})</span></label>
-                            <input type="number" name="quantidades[${id}]" class="form-control" min="0" max="${maxQtd}" value="0" required>
+                            <input type="number" name="quantidades[${id}]" class="form-control bulk-qty-input" min="0" max="${maxQtd}" step="any" value="0" required>
                             <div class="form-text">Quantidade a retirar (máx: ${maxQtd})</div>
                         </div>
                     `;
                     container.insertAdjacentHTML('beforeend', itemHtml);
+                });
+            });
+        }
+
+        if (btnApplyAll && inputApplyAll) {
+            btnApplyAll.addEventListener('click', function () {
+                const val = parseFloat(inputApplyAll.value);
+                if (isNaN(val) || val < 0) return;
+
+                const qtyInputs = document.querySelectorAll('.bulk-qty-input');
+                qtyInputs.forEach(input => {
+                    const maxVal = parseFloat(input.getAttribute('max'));
+                    if (val > maxVal) {
+                        input.value = maxVal;
+                    } else {
+                        input.value = val;
+                    }
                 });
             });
         }
