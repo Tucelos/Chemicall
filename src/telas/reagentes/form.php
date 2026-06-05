@@ -4,8 +4,8 @@ require_once __DIR__ . '/../../controllers/ReagenteController.php';
 require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated()) {
-    header('Location: ../login/index.php');
+if (!$auth->isAuthenticated() || !$auth->isAdmin()) {
+    header('Location: index.php');
     exit();
 }
 
@@ -68,23 +68,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <form method="POST">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Nome *</label>
-                            <input type="text" name="nome" class="form-control" required value="<?php echo $reagente['nome'] ?? ''; ?>">
+                            <label class="form-label d-flex align-items-center justify-content-between">
+                                <span>Nome *</span>
+                                <button type="button" class="btn btn-link p-0 text-decoration-none text-muted small" data-bs-toggle="modal" data-bs-target="#modalHelpPubChem" title="Como funciona o preenchimento automático?">
+                                    <i class="far fa-question-circle"></i> Como funciona?
+                                </button>
+                            </label>
+                            <div class="input-group">
+                                <input type="text" name="nome" id="nome_reagente" class="form-control" required value="<?php echo $reagente['nome'] ?? ''; ?>">
+                                <button class="btn btn-outline-success" type="button" id="btn_buscar_pubchem" title="Buscar dados no PubChem">
+                                    <i class="fas fa-magic"></i> Auto-completar
+                                </button>
+                            </div>
+                            <div id="pubchem_status" class="form-text mt-1" style="display: none;"></div>
                         </div>
                         <div class="col-md-3 mb-3">
                             <label class="form-label">Fórmula Química</label>
-                            <input type="text" name="formula_quimica" class="form-control" value="<?php echo $reagente['formula_quimica'] ?? ''; ?>">
+                            <input type="text" name="formula_quimica" id="formula_quimica" class="form-control" value="<?php echo $reagente['formula_quimica'] ?? ''; ?>">
                         </div>
                         <div class="col-md-3 mb-3">
                             <label class="form-label">Número CAS</label>
-                            <input type="text" name="numero_cas" class="form-control" value="<?php echo $reagente['numero_cas'] ?? ''; ?>">
+                            <input type="text" name="numero_cas" id="numero_cas" class="form-control" value="<?php echo $reagente['numero_cas'] ?? ''; ?>">
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-3 mb-3">
                             <label class="form-label">Massa Molar (g/mol)</label>
-                            <input type="number" step="0.01" name="massa_molar" class="form-control" value="<?php echo $reagente['massa_molar'] ?? ''; ?>">
+                            <input type="number" step="0.01" name="massa_molar" id="massa_molar" class="form-control" value="<?php echo $reagente['massa_molar'] ?? ''; ?>">
                         </div>
                         <div class="col-md-3 mb-3">
                             <label class="form-label">Concentração</label>
@@ -142,6 +153,102 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
+    <!-- Modal de Ajuda do PubChem -->
+    <div class="modal fade" id="modalHelpPubChem" tabindex="-1" aria-labelledby="modalHelpPubChemLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="modalHelpPubChemLabel"><i class="fas fa-info-circle"></i> Preenchimento Automático via PubChem</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>O recurso de <strong>Auto-completar</strong> busca propriedades químicas diretamente no banco de dados público e internacional do <strong>PubChem (NIH)</strong>.</p>
+                    
+                    <h6>Como usar:</h6>
+                    <ol>
+                        <li>Digite o <strong>nome em inglês</strong> do composto (ex: <em>Acetone</em>, <em>Sulfuric Acid</em>, <em>Sodium Hydroxide</em>) ou o <strong>número CAS</strong> (ex: <em>67-64-1</em>) no campo <strong>Nome</strong>.</li>
+                        <li>Clique no botão <strong>Auto-completar</strong>.</li>
+                        <li>O sistema preencherá automaticamente os campos de <strong>Fórmula Química</strong>, <strong>Número CAS</strong> e <strong>Massa Molar</strong> se localizados.</li>
+                    </ol>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i> <strong>Dica de busca:</strong> A base do PubChem é internacional. Para obter os melhores resultados pelo nome, digite-o em <strong>inglês</strong>. Buscar diretamente pelo <strong>Número CAS</strong> é 100% preciso e funciona instantaneamente!
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    document.getElementById('btn_buscar_pubchem').addEventListener('click', function() {
+        const termoBusca = document.getElementById('nome_reagente').value.trim();
+        const statusText = document.getElementById('pubchem_status');
+        const btn = document.getElementById('btn_buscar_pubchem');
+        
+        if (!termoBusca) {
+            alert('Por favor, digite o nome do reagente (em inglês) ou o CAS no campo de Nome para buscar.');
+            return;
+        }
+
+        statusText.style.display = 'block';
+        statusText.className = "form-text mt-1 text-muted";
+        statusText.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando no PubChem...';
+        btn.disabled = true;
+        
+        const urlProperties = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(termoBusca)}/property/MolecularFormula,MolecularWeight/JSON`;
+        
+        fetch(urlProperties)
+            .then(response => {
+                if (!response.ok) throw new Error('Produto não encontrado');
+                return response.json();
+            })
+            .then(data => {
+                const props = data.PropertyTable.Properties[0];
+                const cid = props.CID;
+                
+                // Preenche os campos da tela
+                document.getElementById('formula_quimica').value = props.MolecularFormula || '';
+                document.getElementById('massa_molar').value = props.MolecularWeight || '';
+                
+                statusText.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Dados básicos encontrados! Buscando CAS...';
+                
+                // Busca Sinônimos para extrair o Número CAS
+                return fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${cid}/synonyms/JSON`);
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return { InformationList: { Information: [{ Synonym: [] }] } };
+                }
+                return response.json();
+            })
+            .then(data => {
+                const synonyms = data.InformationList.Information[0].Synonym || [];
+                // Regex para validar formato CAS
+                const casRegex = /^\d{2,7}-\d{2}-\d$/;
+                const casEncontrado = synonyms.find(syn => casRegex.test(syn));
+                
+                if (casEncontrado) {
+                    document.getElementById('numero_cas').value = casEncontrado;
+                    statusText.className = "form-text mt-1 text-success";
+                    statusText.innerHTML = '<i class="fas fa-check-circle"></i> Sucesso! Fórmulas, Massa Molar e CAS importados.';
+                } else {
+                    statusText.className = "form-text mt-1 text-warning";
+                    statusText.innerHTML = '<i class="fas fa-exclamation-circle"></i> Sucesso! Fórmula e Massa Molar importados (CAS não localizado).';
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                statusText.className = "form-text mt-1 text-danger";
+                statusText.innerHTML = '<i class="fas fa-times-circle"></i> Composto não localizado ou erro na API do PubChem.';
+            })
+            .finally(() => {
+                btn.disabled = false;
+            });
+    });
+    </script>
 </body>
 </html>

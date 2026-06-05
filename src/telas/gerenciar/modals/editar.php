@@ -1,5 +1,12 @@
 <?php
-include $_SERVER['DOCUMENT_ROOT'] . "/SM/src/db/db_connection.php";
+require_once __DIR__ . '/../../../controllers/AuthController.php';
+require_once __DIR__ . '/../../../db/db_connection.php';
+
+$auth = new AuthController($conn);
+if (!$auth->isAuthenticated() || !$auth->isAdmin()) {
+    echo json_encode(['status' => 'error', 'message' => 'Acesso não autorizado.']);
+    exit();
+}
 
 // Variáveis para os dados do insumo
 $cod_insumo = '';

@@ -1,5 +1,5 @@
 <?php
-include $_SERVER['DOCUMENT_ROOT'] . "/SM/src/db/db_connection.php";
+require_once __DIR__ . '/../db/db_connection.php';
 
 // Função para obter a quantidade mínima e média
 function getMinMedQuantity($connection, $cod_insumo) {

@@ -1,5 +1,12 @@
 <?php
-include "../../db/db_connection.php";
+require_once __DIR__ . '/../../controllers/AuthController.php';
+require_once __DIR__ . '/../../db/db_connection.php';
+
+$auth = new AuthController($conn);
+if (!$auth->isAuthenticated()) {
+    header('Location: ../login/index.php');
+    exit();
+}
 
 // Verifica se o código do insumo foi passado na URL
 if (!empty($_GET['cod_insumo'])) {

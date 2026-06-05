@@ -1,5 +1,12 @@
 <?php
-include $_SERVER['DOCUMENT_ROOT'] . "/SM/src/db/db_connection.php";
+require_once __DIR__ . '/../../../controllers/AuthController.php';
+require_once __DIR__ . '/../../../db/db_connection.php';
+
+$auth = new AuthController($conn);
+if (!$auth->isAuthenticated()) {
+    echo json_encode(["status" => "error", "message" => "Acesso não autorizado."]);
+    exit();
+}
 
 if (isset($_GET['cod_insumo'])) {
     $cod_insumo = (int)$_GET['cod_insumo'];

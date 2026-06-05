@@ -6,21 +6,22 @@ require 'PHPMailer/src/Exception.php';
 require 'PHPMailer/src/PHPMailer.php';
 require 'PHPMailer/src/SMTP.php';
 
-
-include $_SERVER['DOCUMENT_ROOT'] . "/Chemicall_5/src/db/db_connection.php";
+require_once __DIR__ . '/../../db/db_connection.php';
 
 // Verifica se o token foi passado pela URL
 if (isset($_GET['token'])) {
     $token = $_GET['token'];
     $hashedToken = hash('sha256', $token); // Garante que o token seja passado de forma consistente
 
-    // Consulta para verificar se o token existe no banco de dados
-    $query = "SELECT * FROM esqueceu_senha WHERE token = '$hashedToken'";
-    $r = mysqli_query($connection, $query);
+    // Consulta para verificar se o token existe no banco de dados (usando PDO e Prepared Statements)
+    $stmt = $conn->prepare("SELECT * FROM esqueceu_senha WHERE token = :token");
+    $stmt->execute([':token' => $hashedToken]);
+    $tokenData = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // Verifica se o token é válido
-    if (mysqli_num_rows($r) > 0) {
-        // Token válido
+    if ($tokenData) {
+        $email = $tokenData['email'];
+        
         if (isset($_POST['password']) && isset($_POST['confirmPassword'])) {
             $password = $_POST['password'];
             $confirmPassword = $_POST['confirmPassword'];
@@ -32,11 +33,15 @@ if (isset($_GET['token'])) {
                     // Criptografa a senha
                     $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-                    // Atualiza a senha no banco de dados
-                    $update_query = "UPDATE funcionario SET senha = '$hashedPassword' WHERE email = (SELECT email FROM esqueceu_senha WHERE token = '$hashedToken')";
-                    $res = mysqli_query($connection, $update_query);
+                    // Atualiza a senha no banco de dados (usando PDO e Prepared Statements)
+                    $update_stmt = $conn->prepare("UPDATE funcionario SET senha = :senha WHERE email = :email");
+                    $res = $update_stmt->execute([':senha' => $hashedPassword, ':email' => $email]);
 
                     if ($res) {
+                        // Deleta o token para evitar que seja reutilizado
+                        $delete_stmt = $conn->prepare("DELETE FROM esqueceu_senha WHERE email = :email");
+                        $delete_stmt->execute([':email' => $email]);
+
                         echo "<script>alert('Senha atualizada com sucesso!'); window.location.href='index.php';</script>";
                     } else {
                         echo "<script>alert('Erro ao atualizar a senha. Tente novamente.');</script>";

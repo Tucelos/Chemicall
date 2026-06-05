@@ -1,6 +1,13 @@
 <?php
-require_once '../../../../src/db/db_connection.php';
+require_once __DIR__ . '/../../../controllers/AuthController.php';
+require_once __DIR__ . '/../../../db/db_connection.php';
 require_once 'dompdf/autoload.inc.php';
+
+$auth = new AuthController($conn);
+if (!$auth->isAuthenticated() || !$auth->isAdmin()) {
+    header('Location: ../../dashboard/index.php');
+    exit();
+}
 
 use Dompdf\Dompdf;
 

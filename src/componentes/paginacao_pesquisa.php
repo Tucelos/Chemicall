@@ -28,7 +28,7 @@
 </style>
 
 <?php
-include $_SERVER['DOCUMENT_ROOT'] . "/SM/src/db/db_connection.php";
+require_once __DIR__ . '/../db/db_connection.php';
 
 $pesquisar = !empty($_GET['pesquisar']) ? mysqli_real_escape_string($connection, $_GET['pesquisar']) : '';
 
