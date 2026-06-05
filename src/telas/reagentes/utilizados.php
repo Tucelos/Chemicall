@@ -12,7 +12,7 @@ if (!$auth->isAuthenticated()) {
 $reagenteController = new ReagenteController($conn);
 $busca = $_GET['busca'] ?? '';
 $apenasControlados = isset($_GET['controlado']) && $_GET['controlado'] == '1';
-$reagentes = $reagenteController->listar($busca, $apenasControlados, false); // Apenas ativos (quantidade > 0)
+$reagentes = $reagenteController->listar($busca, $apenasControlados, true); // Apenas utilizados (quantidade = 0)
 $isAdmin = $auth->isAdmin();
 $isGestor = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'gestor';
 
@@ -43,7 +43,7 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estoque - Chemicall</title>
+    <title>Itens Utilizados - Chemicall</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
@@ -52,9 +52,9 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
 
     <div class="container mt-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="fas fa-boxes"></i> Estoque de Reagentes</h2>
+            <h2><i class="fas fa-history"></i> Itens Utilizados (Esgotados)</h2>
             <div class="d-flex gap-2">
-                <a href="utilizados.php" class="btn btn-outline-secondary"><i class="fas fa-history"></i> Itens Utilizados</a>
+                <a href="index.php" class="btn btn-primary"><i class="fas fa-boxes"></i> Ver Estoque Ativo</a>
                 <?php if ($isAdmin || $isGestor): ?>
                 <a href="form.php" class="btn btn-success"><i class="fas fa-plus"></i> Novo Reagente</a>
                 <?php endif; ?>
@@ -75,7 +75,7 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
 
                     <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Buscar</button>
                     <?php if ($busca || $apenasControlados): ?>
-                        <a href="index.php" class="btn btn-secondary">Limpar</a>
+                        <a href="utilizados.php" class="btn btn-secondary">Limpar</a>
                     <?php endif; ?>
                 </form>
             </div>
@@ -95,24 +95,21 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
             </div>
         <?php endif; ?>
 
-        <!-- Bulk Actions Bar -->
+        <!-- Bulk Actions Bar (Only Excluir for utilized items) -->
+        <?php if ($isAdmin || $isGestor): ?>
         <div id="bulkActionsBar" class="card bg-dark text-white p-3 mb-4 d-none">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <span id="selectedCount" class="fw-bold fs-5 text-warning">0</span> itens selecionados
                 </div>
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#bulkWithdrawModal">
-                        <i class="fas fa-minus"></i> Retirar em Lote
-                    </button>
-                    <?php if ($isAdmin || $isGestor): ?>
                     <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#bulkDeleteModal">
                         <i class="fas fa-trash"></i> Excluir Selecionados
                     </button>
-                    <?php endif; ?>
                 </div>
             </div>
         </div>
+        <?php endif; ?>
 
         <form id="bulkForm" action="acoes_lote.php" method="POST">
             <input type="hidden" name="acao" id="bulkAcao" value="">
@@ -134,13 +131,13 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                     <tbody>
                         <?php if (empty($reagentes)): ?>
                             <tr>
-                                <td colspan="8" class="text-center">Nenhum reagente encontrado no estoque.</td>
+                                <td colspan="8" class="text-center">Nenhum item utilizado encontrado.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($reagentes as $r): ?>
                                 <tr class="clickable-row" data-reagente-id="<?php echo $r['id']; ?>" style="cursor: pointer;">
                                     <td>
-                                        <input type="checkbox" class="form-check-input row-checkbox" name="ids[]" value="<?php echo $r['id']; ?>" data-nome="<?php echo htmlspecialchars($r['nome']); ?>" data-qtd="<?php echo $r['quantidade']; ?>" data-unidade="<?php echo htmlspecialchars($r['unidade_medida']); ?>" data-capacidade="<?php echo $r['capacidade_medida']; ?>" data-unicap="<?php echo htmlspecialchars($r['unidade_capacidade']); ?>">
+                                        <input type="checkbox" class="form-check-input row-checkbox" name="ids[]" value="<?php echo $r['id']; ?>" data-nome="<?php echo htmlspecialchars($r['nome']); ?>">
                                     </td>
                                     <td><strong><?php echo htmlspecialchars($r['nome']); ?></strong></td>
                                     <td><?php echo htmlspecialchars($r['densidade'] !== null ? $r['densidade'] . ' g/cm³' : '-'); ?></td>
@@ -154,56 +151,14 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                                     </td>
                                     <td><?php echo date('d/m/Y', strtotime($r['validade'])); ?></td>
                                     <td>
-                                        <span class="badge bg-dark fs-6"><?php echo formatarQuantidade($r['quantidade'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']); ?></span>
+                                        <span class="badge bg-secondary fs-6">Esgotado (0)</span>
                                     </td>
                                     <td>
                                         <div class="btn-group" role="group">
-                                             <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#modalRemove<?php echo $r['id']; ?>" title="Retirar do Estoque">
-                                                 <i class="fas fa-minus"></i>
-                                             </button>
                                              <?php if ($isAdmin || $isGestor): ?>
                                              <a href="form.php?id=<?php echo $r['id']; ?>" class="btn btn-sm btn-primary" title="Editar"><i class="fas fa-edit"></i></a>
                                              <a href="delete.php?id=<?php echo $r['id']; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja excluir este item?');" title="Excluir"><i class="fas fa-trash"></i></a>
                                              <?php endif; ?>
-                                        </div>
-
-                                        <!-- Modal Remover -->
-                                        <div class="modal fade" id="modalRemove<?php echo $r['id']; ?>" tabindex="-1" aria-hidden="true">
-                                            <div class="modal-dialog">
-                                                <div class="modal-content text-dark">
-                                                    <div class="modal-header">
-                                                        <h5 class="modal-title">Retirar do Estoque: <?php echo htmlspecialchars($r['nome']); ?></h5>
-                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                    </div>
-                                                    <form action="atualizar_estoque.php" method="POST">
-                                                        <div class="modal-body text-start">
-                                                            <input type="hidden" name="id" value="<?php echo $r['id']; ?>">
-                                                            <input type="hidden" name="operacao" value="remover">
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Quantidade a retirar</label>
-                                                                <input type="number" name="quantidade" class="form-control" min="1" max="<?php echo $r['quantidade']; ?>" required>
-                                                                <div class="form-text">Estoque atual: <?php echo formatarQuantidade($r['quantidade'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']); ?></div>
-                                                            </div>
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Motivo da retirada</label>
-                                                                <select name="motivo_tipo" class="form-select select-motivo" data-reagente-id="<?php echo $r['id']; ?>" required>
-                                                                    <option value="uso">Uso em aula/pesquisa</option>
-                                                                    <option value="vencimento">Vencimento do produto</option>
-                                                                    <option value="outro">Outro (especificar)</option>
-                                                                </select>
-                                                            </div>
-                                                            <div class="mb-3 d-none" id="divOutro<?php echo $r['id']; ?>">
-                                                                <label class="form-label">Especifique o motivo</label>
-                                                                <input type="text" name="motivo_outro" class="form-control" id="inputOutro<?php echo $r['id']; ?>">
-                                                            </div>
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                            <button type="submit" class="btn btn-warning">Retirar</button>
-                                                        </div>
-                                                    </form>
-                                                </div>
-                                            </div>
                                         </div>
 
                                         <!-- Modal Detalhes -->
@@ -290,7 +245,7 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                                                                 <div class="card bg-light p-3 h-100 d-flex flex-column justify-content-between">
                                                                     <div>
                                                                         <h6>Qtd em Estoque</h6>
-                                                                        <span class="fs-6 text-success"><?php echo formatarQuantidade($r['quantidade'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']); ?></span>
+                                                                        <span class="fs-6 text-success">Esgotado (0)</span>
                                                                     </div>
                                                                     <small class="d-block mt-1" style="font-size: 0.75rem; visibility: hidden;">&nbsp;</small>
                                                                 </div>
@@ -404,40 +359,6 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                 </table>
             </div>
 
-            <!-- Bulk Withdraw Modal -->
-            <div class="modal fade" id="bulkWithdrawModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-scrollable">
-                    <div class="modal-content text-dark">
-                        <div class="modal-header bg-warning">
-                            <h5 class="modal-title"><i class="fas fa-minus"></i> Retirar Itens em Lote</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body text-start">
-                            <div id="bulkWithdrawItemsList">
-                                <!-- Dynamic content populated by JS -->
-                            </div>
-                            
-                            <div class="mb-3 mt-4">
-                                <label class="form-label fw-bold">Motivo da retirada (para todos)</label>
-                                <select name="motivo_tipo" id="motivo_tipo_bulk" class="form-select" required>
-                                    <option value="uso">Uso em aula/pesquisa</option>
-                                    <option value="vencimento">Vencimento do produto</option>
-                                    <option value="outro">Outro (especificar)</option>
-                                </select>
-                            </div>
-                            <div class="mb-3 d-none" id="divOutroBulk">
-                                <label class="form-label fw-bold">Especifique o motivo</label>
-                                <input type="text" name="motivo_outro" class="form-control" id="inputOutroBulk">
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="submit" class="btn btn-warning" onclick="document.getElementById('bulkAcao').value = 'retirar';">Confirmar Retirada</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Bulk Delete Modal -->
             <div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog">
@@ -465,43 +386,6 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Exibição condicional do motivo personalizado no modal individual
-        const selectMotivos = document.querySelectorAll('.select-motivo');
-        selectMotivos.forEach(select => {
-            select.addEventListener('change', function() {
-                const id = this.getAttribute('data-reagente-id');
-                const divOutro = document.getElementById('divOutro' + id);
-                const inputOutro = document.getElementById('inputOutro' + id);
-                if (this.value === 'outro') {
-                    divOutro.classList.remove('d-none');
-                    inputOutro.setAttribute('required', 'required');
-                    inputOutro.focus();
-                } else {
-                    divOutro.classList.add('d-none');
-                    inputOutro.removeAttribute('required');
-                    inputOutro.value = '';
-                }
-            });
-        });
-
-        // Exibição condicional do motivo personalizado no modal em lote
-        const selectMotivoBulk = document.getElementById('motivo_tipo_bulk');
-        const divOutroBulk = document.getElementById('divOutroBulk');
-        const inputOutroBulk = document.getElementById('inputOutroBulk');
-        if (selectMotivoBulk) {
-            selectMotivoBulk.addEventListener('change', function() {
-                if (this.value === 'outro') {
-                    divOutroBulk.classList.remove('d-none');
-                    inputOutroBulk.setAttribute('required', 'required');
-                    inputOutroBulk.focus();
-                } else {
-                    divOutroBulk.classList.add('d-none');
-                    inputOutroBulk.removeAttribute('required');
-                    inputOutroBulk.value = '';
-                }
-            });
-        }
-
         // Clique na linha para abrir os Detalhes (ignora se clicar em checkbox ou botões)
         const clickableRows = document.querySelectorAll('.clickable-row');
         clickableRows.forEach(row => {
@@ -526,11 +410,13 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
 
         function updateBulkActions() {
             const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
-            if (checkedCount > 0) {
-                bulkActionsBar.classList.remove('d-none');
-                selectedCount.textContent = checkedCount;
-            } else {
-                bulkActionsBar.classList.add('d-none');
+            if (bulkActionsBar) {
+                if (checkedCount > 0) {
+                    bulkActionsBar.classList.remove('d-none');
+                    selectedCount.textContent = checkedCount;
+                } else {
+                    bulkActionsBar.classList.add('d-none');
+                }
             }
         }
 
@@ -546,39 +432,6 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
         checkboxes.forEach(cb => {
             cb.addEventListener('change', updateBulkActions);
         });
-
-        // Popular modal de retirada em lote
-        const bulkWithdrawModal = document.getElementById('bulkWithdrawModal');
-        if (bulkWithdrawModal) {
-            bulkWithdrawModal.addEventListener('show.bs.modal', function () {
-                const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
-                const container = document.getElementById('bulkWithdrawItemsList');
-                container.innerHTML = '';
-
-                selectedCheckboxes.forEach(cb => {
-                    const id = cb.value;
-                    const nome = cb.getAttribute('data-nome');
-                    const maxQtd = cb.getAttribute('data-qtd');
-                    const unidade = cb.getAttribute('data-unidade');
-                    const capacidade = cb.getAttribute('data-capacidade');
-                    const uniCap = cb.getAttribute('data-unicap');
-
-                    let fmtInfo = maxQtd + ' ' + unidade;
-                    if (capacidade && capacidade > 0) {
-                        fmtInfo += ' (' + parseFloat(capacidade) + ' ' + uniCap + ')';
-                    }
-
-                    const itemHtml = `
-                        <div class="mb-3 border-bottom pb-3">
-                            <label class="form-label fw-bold mb-1">${nome} <span class="text-muted" style="font-size:0.85rem;">(Estoque: ${fmtInfo})</span></label>
-                            <input type="number" name="quantidades[${id}]" class="form-control" min="0" max="${maxQtd}" value="0" required>
-                            <div class="form-text">Quantidade a retirar (máx: ${maxQtd})</div>
-                        </div>
-                    `;
-                    container.insertAdjacentHTML('beforeend', itemHtml);
-                });
-            });
-        }
 
         // Popular modal de exclusão em lote
         const bulkDeleteModal = document.getElementById('bulkDeleteModal');

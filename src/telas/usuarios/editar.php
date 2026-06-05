@@ -28,11 +28,12 @@ $msg = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $tipo = $_POST['tipo'] ?? 'user';
     $dados = [
         'nome' => $_POST['nome'],
         'email' => $_POST['email'],
-        'login' => $_POST['login'],
-        'tipo' => $_POST['tipo'],
+        'tipo' => $tipo,
+        'acesso_controlados' => (($tipo === 'admin' || $tipo === 'gestor') || isset($_POST['acesso_controlados'])) ? 1 : 0,
         'senha' => $_POST['senha'] // Optional
     ];
 
@@ -91,18 +92,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <input type="email" class="form-control" id="email" name="email" required value="<?php echo htmlspecialchars($usuario['email']); ?>">
                             </div>
 
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="login" class="form-label">Login</label>
-                                    <input type="text" class="form-control" id="login" name="login" required value="<?php echo htmlspecialchars($usuario['login_funcionario']); ?>">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="tipo" class="form-label">Tipo de Usuário</label>
-                                    <select class="form-select" id="tipo" name="tipo" required>
-                                        <option value="docente" <?php echo $usuario['tipo'] === 'docente' ? 'selected' : ''; ?>>Professor (Docente)</option>
-                                        <option value="admin" <?php echo $usuario['tipo'] === 'admin' ? 'selected' : ''; ?>>Administrador</option>
-                                    </select>
-                                </div>
+                            <div class="mb-3">
+                                <label for="tipo" class="form-label d-flex align-items-center">
+                                    Perfil de Acesso
+                                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-circle ms-2" data-bs-toggle="popover" data-bs-placement="right" data-bs-html="true" data-bs-title="Níveis de Permissão" data-bs-content="<strong>Administrador:</strong> Acesso total ao sistema, gerenciar usuários, gerenciar estoque e emitir relatórios.<br><br><strong>Gestor:</strong> Permissão para modificar o estoque (criar, editar, excluir produtos) e emitir relatórios.<br><br><strong>Usuário:</strong> Apenas visualizar o estoque e realizar retiradas (acesso a produtos controlados é opcional)." style="width: 20px; height: 20px; padding: 0; font-size: 0.75rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center; font-weight: bold;">?</button>
+                                </label>
+                                <select class="form-select" id="tipo" name="tipo" required>
+                                    <option value="user" <?php echo ($usuario['tipo'] === 'user' || $usuario['tipo'] === 'docente') ? 'selected' : ''; ?>>Usuário</option>
+                                    <option value="gestor" <?php echo $usuario['tipo'] === 'gestor' ? 'selected' : ''; ?>>Gestor</option>
+                                    <option value="admin" <?php echo $usuario['tipo'] === 'admin' ? 'selected' : ''; ?>>Administrador</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3 form-check" id="div_controlados">
+                                <input type="checkbox" class="form-check-input" id="acesso_controlados" name="acesso_controlados" value="1" <?php echo (isset($usuario['acesso_controlados']) && $usuario['acesso_controlados'] == 1) ? 'checked' : ''; ?>>
+                                <label class="form-check-label" for="acesso_controlados">Permitir visualização e retirada de produtos controlados</label>
                             </div>
 
                             <div class="mb-4">
@@ -122,5 +126,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const tipoSelect = document.getElementById('tipo');
+        const divControlados = document.getElementById('div_controlados');
+
+        function toggleControlados() {
+            if (tipoSelect.value === 'user') {
+                divControlados.style.display = 'block';
+            } else {
+                divControlados.style.display = 'none';
+            }
+        }
+
+        tipoSelect.addEventListener('change', toggleControlados);
+        toggleControlados(); // Executa ao carregar a página
+
+        // Inicializar os Popovers do Bootstrap
+        const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
+        const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
+    });
+    </script>
 </body>
 </html>

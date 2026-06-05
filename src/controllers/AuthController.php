@@ -17,6 +17,7 @@ class AuthController {
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($user && password_verify($senha, $user['senha'])) {
+                session_regenerate_id(true);
                 $_SESSION['user_id'] = $user['cod_funcionario'];
                 $_SESSION['user_name'] = $user['nome'];
                 $_SESSION['user_type'] = $user['tipo'];
@@ -38,6 +39,10 @@ class AuthController {
 
     public function isAdmin() {
         return isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin';
+    }
+
+    public function isGestor() {
+        return isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'gestor';
     }
 }
 ?>

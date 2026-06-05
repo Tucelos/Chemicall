@@ -1,15 +1,31 @@
 <?php
-include_once ('../../db/db_connection.php');
+require_once __DIR__ . '/../../controllers/AuthController.php';
+require_once __DIR__ . '/../../db/db_connection.php';
 
-$cod_insumo = $_GET['cod_insumo'];
+$auth = new AuthController($conn);
+if (!$auth->isAuthenticated() || !$auth->isAdmin()) {
+    header('Location: ../dashboard/index.php');
+    exit();
+}
 
-$sql= "DELETE FROM insumo WHERE cod_insumo = $cod_insumo";
+$cod_insumo = $_GET['cod_insumo'] ?? null;
 
-$result = mysqli_query($connection, $sql);
-
-if ($result) {
-    header("Location: ../estoque/estoque.php?msg=Deletado com Sucesso!");
+if ($cod_insumo) {
+    try {
+        $stmt = $conn->prepare("DELETE FROM insumo WHERE cod_insumo = :cod_insumo");
+        $result = $stmt->execute([':cod_insumo' => $cod_insumo]);
+        
+        if ($result) {
+            header("Location: ../estoque/estoque.php?msg=Deletado com Sucesso!");
+            exit();
+        } else {
+            echo "Falhou ao deletar insumo.";
+        }
+    } catch (PDOException $e) {
+        echo "Erro: " . htmlspecialchars($e->getMessage());
+    }
 } else {
-    echo "Falhou: " . mysqli_error($connection);
+    header("Location: ../estoque/estoque.php");
+    exit();
 }
 ?>

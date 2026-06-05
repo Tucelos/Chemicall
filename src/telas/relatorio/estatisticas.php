@@ -1,5 +1,12 @@
 <?php
+require_once __DIR__ . '/../../controllers/AuthController.php';
 require_once __DIR__ . '/../../db/db_connection.php';
+
+$auth = new AuthController($conn);
+if (!$auth->isAuthenticated() || (!$auth->isAdmin() && !$auth->isGestor())) {
+    header('Location: ../dashboard/index.php');
+    exit();
+}
 
 // Get period from GET request
 $periodo = $_GET['periodo'] ?? '30';

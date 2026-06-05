@@ -54,19 +54,22 @@ O projeto foi construído utilizando as seguintes tecnologias:
 
 ## ⚙️ Instalação e Configuração
 
-1.  **Pré-requisitos**: Tenha o [XAMPP](https://www.apachefriends.org/) instalado.
-2.  **Clone o Repositório**:
-    ```bash
-    git clone https://github.com/seu-usuario/chemicall.git
-    ```
-3.  **Configuração do Banco de Dados**:
-    - Inicie o Apache e MySQL no XAMPP.
-    - Acesse `http://localhost/phpmyadmin`.
-    - Crie um banco de dados chamado `chemicall`.
-    - Importe o arquivo `chemicall_schema.sql` localizado na raiz do projeto.
-4.  **Execução**:
-    - Mova a pasta do projeto para `C:\xampp\htdocs\Chemicall_5`.
-    - Acesse `http://localhost/Chemicall_5` no seu navegador.
+1. **Pré-requisitos**: Tenha o [XAMPP](https://www.apachefriends.org/) instalado.
+2. **Mover o Projeto**:
+   - Mova a pasta `Chemicall` para dentro do diretório de servidores web do XAMPP: `C:\xampp\htdocs\Chemicall`.
+3. **Configurar o Ambiente (.env)**:
+   - Verifique ou crie o arquivo `.env` na raiz do projeto com os dados do seu MySQL.
+   - *Nota: Caso seu root do XAMPP não possua senha, configure `DB_PASS=` (em branco).*
+4. **Configuração do Banco de Dados**:
+   - Inicie o **Apache** e **MySQL** no Painel do XAMPP.
+   - Acesse `http://localhost/phpmyadmin` no navegador.
+   - Crie um banco de dados chamado `chemicall`.
+   - Selecione o banco `chemicall` e importe o arquivo [chemicall_schema.sql](file:///C:/xampp/htdocs/Chemicall/chemicall_schema.sql) da raiz do projeto. Isso criará todas as tabelas (funcionarios, reagentes, movimentacoes, etc.) e inserirá dados fictícios de teste.
+5. **Execução**:
+   - Acesse `http://localhost/Chemicall/src/telas/login/index.php` no seu navegador.
+   - Faça login com as credenciais padrão de teste:
+     * **Administrador**: `admin@chemicall.com` / Senha: `admin123`
+     * **Professor**: `prof@chemicall.com` / Senha: `admin123`
 
 ---
 

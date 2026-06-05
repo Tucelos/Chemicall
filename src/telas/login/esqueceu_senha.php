@@ -7,7 +7,7 @@ require 'PHPMailer/src/Exception.php';
 require 'PHPMailer/src/PHPMailer.php';
 require 'PHPMailer/src/SMTP.php';
 
-include $_SERVER['DOCUMENT_ROOT'] . "/Chemicall_5/src/db/db_connection.php";
+require_once __DIR__ . '/../../db/db_connection.php';
 
 // Variáveis de controle para exibir a mensagem de sucesso ou erro
 $mensagem = '';
@@ -19,36 +19,52 @@ if (isset($_POST['email'])) {
     if (empty($email)) {
         $mensagem = "O campo de e-mail está vazio.";
     } else {
-        // Consulta para verificar se o e-mail existe no banco de dados
-        $query = "SELECT * FROM funcionario WHERE email = '$email'";
-        $r = mysqli_query($connection, $query);
+        // Consulta para verificar se o e-mail existe no banco de dados (usando PDO e Prepared Statements)
+        $stmt = $conn->prepare("SELECT * FROM funcionario WHERE email = :email");
+        $stmt->execute([':email' => $email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (mysqli_num_rows($r) > 0) {
+        if ($user) {
             // Gera um token seguro para a redefinição de senha
             $token = bin2hex(random_bytes(32)); // Gera um token de 64 caracteres
+            $hashedToken = hash('sha256', $token);
 
-            // Insere o token no banco de dados
-            $insert_query = "INSERT INTO esqueceu_senha (email, token) VALUES ('$email', '" . hash('sha256', $token) . "')";
-            $res = mysqli_query($connection, $insert_query);
+            // Insere o token no banco de dados (usando PDO e Prepared Statements)
+            $insert_stmt = $conn->prepare("INSERT INTO esqueceu_senha (email, token) VALUES (:email, :token)");
+            $res = $insert_stmt->execute([':email' => $email, ':token' => $hashedToken]);
 
             if ($res) {
+                // Build reset link dynamically
+                $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
+                $host = $_SERVER['HTTP_HOST'];
+                $uri = $_SERVER['REQUEST_URI'];
+                $pos = strpos($uri, 'src/telas/login/');
+                $baseDir = ($pos !== false) ? substr($uri, 0, $pos) : '/';
+                $resetLink = $protocol . "://" . $host . $baseDir . "src/telas/login/reset.php?token=" . $token;
+
                 // Criando instância do PHPMailer
                 $mail = new PHPMailer(true);
 
                 try {
                     // Configuração do servidor SMTP
                     $mail->isSMTP();  // Define que estamos usando SMTP
-                    $mail->Host = 'smtp.gmail.com';  // Usando o servidor SMTP do Gmail
+                    $mail->Host = $_ENV['SMTP_HOST'] ?? '';
                     $mail->SMTPAuth = true;  // Ativa autenticação SMTP
-                    $mail->Username = 'anacarol.farias11@gmail.com';  // Seu e-mail do Gmail
-                    $mail->Password = 'gynaefjniclkgnly';  // Senha do e-mail (ou senha de aplicativo)
-                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // Usando SSL
-                    $mail->Port = 465; // Porta SSL 
+                    $mail->Username = $_ENV['SMTP_USER'] ?? '';
+                    $mail->Password = $_ENV['SMTP_PASS'] ?? '';
+                    
+                    $smtpSecure = strtolower($_ENV['SMTP_SECURE'] ?? 'ssl');
+                    if ($smtpSecure === 'tls') {
+                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                    } else {
+                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+                    }
+                    $mail->Port = (int)($_ENV['SMTP_PORT'] ?? 465);
 
                     // Remetente
-                    $mail->setFrom('no-reply@chemicall.com', 'Redefinição de Senha');
+                    $mail->setFrom($_ENV['SMTP_FROM_EMAIL'] ?? 'no-reply@chemicall.com', $_ENV['SMTP_FROM_NAME'] ?? 'Redefinição de Senha');
                     $mail->addAddress($email);  // E-mail do destinatário
-                    $mail->addReplyTo('no-reply@chemicall.com', 'Redefinição de Senha');
+                    $mail->addReplyTo($_ENV['SMTP_FROM_EMAIL'] ?? 'no-reply@chemicall.com', $_ENV['SMTP_FROM_NAME'] ?? 'Redefinição de Senha');
                     $mail->Subject = 'Redefinir Senha';
 
                     // Conteúdo do e-mail
@@ -115,7 +131,7 @@ if (isset($_POST['email'])) {
             <p>Olá,</p>
             <p>Recebemos uma solicitação para redefinir sua senha. Para continuar, clique no botão abaixo:</p>
             <center>
-            <p><a href='http://localhost/Chemicall_5/src/telas/login/reset.php?token=$token' class='button' style='text-decoration: none;'>Redefinir Senha</a></p>
+            <p><a href='$resetLink' class='button' style='text-decoration: none;'>Redefinir Senha</a></p>
             </center>
             <p>Se você não fez essa solicitação, pode ignorar este e-mail.</p>
         </div>

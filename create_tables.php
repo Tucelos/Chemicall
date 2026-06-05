@@ -15,6 +15,16 @@ try {
     $conn->exec($sql);
     echo "Table 'funcionario' created successfully.\n";
 
+    // Create esqueceu_senha table
+    $sql_reset = "CREATE TABLE IF NOT EXISTS esqueceu_senha (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        token VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )";
+    $conn->exec($sql_reset);
+    echo "Table 'esqueceu_senha' created successfully.\n";
+
     // Check if admin exists
     $stmt = $conn->prepare("SELECT * FROM funcionario WHERE email = ?");
     $stmt->execute(['admin@chemicall.com']);

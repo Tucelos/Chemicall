@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../controllers/ReagenteController.php';
 require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated() || !$auth->isAdmin()) {
+if (!$auth->isAuthenticated() || (!$auth->isAdmin() && !$auth->isGestor())) {
     header('Location: index.php');
     exit();
 }

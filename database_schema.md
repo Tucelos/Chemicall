@@ -11,7 +11,6 @@ erDiagram
 
     funcionario {
         int cod_funcionario PK
-        string login_funcionario
         string senha
         string nome
         string email
