@@ -55,6 +55,7 @@ if (isset($_POST['delete_id'])) {
                             <tr>
                                 <th>ID</th>
                                 <th>Nome</th>
+                                <th>Matrícula</th>
                                 <th>Email</th>
                                 <th>Tipo</th>
                                 <th>Acesso Controlados</th>
@@ -66,6 +67,7 @@ if (isset($_POST['delete_id'])) {
                             <tr>
                                 <td><?php echo htmlspecialchars($user['cod_funcionario']); ?></td>
                                 <td><?php echo htmlspecialchars($user['nome']); ?></td>
+                                <td><code><?php echo htmlspecialchars($user['matricula'] ?? 'N/A'); ?></code></td>
                                 <td><?php echo htmlspecialchars($user['email']); ?></td>
                                 <td>
                                     <?php 

@@ -170,236 +170,6 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                                              <a href="delete.php?id=<?php echo $r['id']; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja excluir este item?');" title="Excluir"><i class="fas fa-trash"></i></a>
                                              <?php endif; ?>
                                         </div>
-
-                                        <!-- Modal Remover -->
-                                        <div class="modal fade" id="modalRemove<?php echo $r['id']; ?>" tabindex="-1" aria-hidden="true">
-                                            <div class="modal-dialog">
-                                                <div class="modal-content text-dark">
-                                                    <div class="modal-header">
-                                                        <h5 class="modal-title">Retirar do Estoque: <?php echo htmlspecialchars($r['nome']); ?></h5>
-                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                    </div>
-                                                    <form action="atualizar_estoque.php" method="POST">
-                                                        <div class="modal-body text-start">
-                                                            <input type="hidden" name="id" value="<?php echo $r['id']; ?>">
-                                                            <input type="hidden" name="operacao" value="remover">
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Quantidade a retirar</label>
-                                                                <input type="number" name="quantidade" class="form-control" min="1" max="<?php echo $r['quantidade']; ?>" required>
-                                                                <div class="form-text">Estoque atual: <?php echo formatarQuantidade($r['quantidade'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']); ?></div>
-                                                            </div>
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Motivo da retirada</label>
-                                                                <select name="motivo_tipo" class="form-select select-motivo" data-reagente-id="<?php echo $r['id']; ?>" required>
-                                                                    <option value="uso">Uso em aula/pesquisa</option>
-                                                                    <option value="vencimento">Vencimento do produto</option>
-                                                                    <option value="outro">Outro (especificar)</option>
-                                                                </select>
-                                                            </div>
-                                                            <div class="mb-3 d-none" id="divOutro<?php echo $r['id']; ?>">
-                                                                <label class="form-label">Especifique o motivo</label>
-                                                                <input type="text" name="motivo_outro" class="form-control" id="inputOutro<?php echo $r['id']; ?>">
-                                                            </div>
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                            <button type="submit" class="btn btn-warning">Retirar</button>
-                                                        </div>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Modal Detalhes -->
-                                        <div class="modal fade" id="modalDetail<?php echo $r['id']; ?>" tabindex="-1" aria-hidden="true">
-                                            <div class="modal-dialog modal-lg">
-                                                <div class="modal-content text-dark">
-                                                    <div class="modal-header bg-dark text-white">
-                                                        <h5 class="modal-title"><i class="fas fa-flask"></i> Detalhes do Reagente: <?php echo htmlspecialchars($r['nome']); ?></h5>
-                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                    </div>
-                                                    <div class="modal-body text-start">
-                                                        <div class="row">
-                                                            <div class="col-md-6 mb-3">
-                                                                <strong>Nome:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['nome']); ?></span>
-                                                            </div>
-                                                            <div class="col-md-6 mb-3">
-                                                                <strong>Fórmula Química:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['formula_quimica'] ?? '-'); ?></span>
-                                                            </div>
-                                                            <div class="col-md-6 mb-3">
-                                                                <strong>Número CAS:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['numero_cas'] ?? '-'); ?></span>
-                                                            </div>
-                                                            <div class="col-md-6 mb-3">
-                                                                <strong>Massa Molar:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['massa_molar'] ?? '-'); ?> g/mol</span>
-                                                            </div>
-                                                            <div class="col-md-6 mb-3">
-                                                                <strong>Densidade:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['densidade'] ?? '-'); ?> g/cm³</span>
-                                                            </div>
-                                                            <div class="col-md-6 mb-3">
-                                                                <strong>Concentração:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['concentracao'] ?? '-'); ?></span>
-                                                            </div>
-                                                            <div class="col-md-6 mb-3">
-                                                                <strong>Data de Validade:</strong> <span class="text-secondary"><?php echo date('d/m/Y', strtotime($r['validade'])); ?></span>
-                                                            </div>
-                                                            <div class="col-md-6 mb-3">
-                                                                <strong>Fabricante:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['fabricante'] ?? '-'); ?></span>
-                                                            </div>
-                                                            <div class="col-md-6 mb-3">
-                                                                <strong>Condição:</strong> <span class="text-secondary"><?php echo ucfirst(htmlspecialchars($r['condicao'])); ?></span>
-                                                            </div>
-                                                            <div class="col-md-6 mb-3">
-                                                                <strong>Número NCM:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['numero_ncm'] ?? '-'); ?></span>
-                                                            </div>
-                                                            <div class="col-md-6 mb-3">
-                                                                <strong>Nota Fiscal:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['numero_nota_fiscal'] ?? '-'); ?></span>
-                                                            </div>
-                                                            <div class="col-md-6 mb-3">
-                                                                <strong>Produto Controlado:</strong> 
-                                                                <span class="badge bg-<?php echo $r['controlado'] ? 'danger' : 'secondary'; ?>">
-                                                                    <?php echo $r['controlado'] ? 'Sim' : 'Não'; ?>
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        <hr>
-                                                        
-                                                        <h5 class="text-dark"><i class="fas fa-chart-pie"></i> Métricas de Estoque</h5>
-                                                        <div class="row mt-3 text-center d-flex align-items-stretch">
-                                                            <div class="col-md-4 mb-3">
-                                                                <div class="card bg-light p-3 h-100 d-flex flex-column justify-content-between">
-                                                                    <div>
-                                                                        <h6>Qtd Original</h6>
-                                                                        <span class="fs-6 text-primary"><?php echo formatarQuantidade($r['quantidade_original'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']); ?></span>
-                                                                    </div>
-                                                                    <small class="d-block mt-1" style="font-size: 0.75rem; visibility: hidden;">&nbsp;</small>
-                                                                </div>
-                                                            </div>
-                                                            <div class="col-md-4 mb-3">
-                                                                <div class="card bg-light p-3 border-danger-subtle h-100 d-flex flex-column justify-content-between" style="cursor: pointer; transition: all 0.2s;" onmouseover="this.classList.add('shadow-sm'); this.style.transform='scale(1.03)';" onmouseout="this.classList.remove('shadow-sm'); this.style.transform='scale(1)';" data-bs-toggle="modal" data-bs-target="#modalUsageHistory<?php echo $r['id']; ?>">
-                                                                    <div>
-                                                                        <h6 class="text-danger"><i class="fas fa-history me-1"></i> Qtd Utilizada</h6>
-                                                                        <span class="fs-6 text-danger fw-bold">
-                                                                            <?php 
-                                                                            $stmtSaidas = $conn->prepare("SELECT SUM(quantidade) as total FROM movimentacoes WHERE reagente_id = :rid AND tipo_movimentacao = 'saida'");
-                                                                            $stmtSaidas->execute([':rid' => $r['id']]);
-                                                                            $totalSaidas = $stmtSaidas->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
-                                                                            echo formatarQuantidade($totalSaidas, $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']);
-                                                                            ?>
-                                                                        </span>
-                                                                    </div>
-                                                                    <small class="text-muted d-block mt-1" style="font-size: 0.75rem;"><i class="fas fa-eye"></i> Clique para ver histórico</small>
-                                                                </div>
-                                                            </div>
-                                                            <div class="col-md-4 mb-3">
-                                                                <div class="card bg-light p-3 h-100 d-flex flex-column justify-content-between">
-                                                                    <div>
-                                                                        <h6>Qtd em Estoque</h6>
-                                                                        <span class="fs-6 text-success"><?php echo formatarQuantidade($r['quantidade'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']); ?></span>
-                                                                    </div>
-                                                                    <small class="d-block mt-1" style="font-size: 0.75rem; visibility: hidden;">&nbsp;</small>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        <div class="row mt-4">
-                                                            <div class="col-12">
-                                                                <strong>Cadastrado por:</strong> 
-                                                                <span class="text-secondary">
-                                                                    <?php 
-                                                                    $stmtCriador = $conn->prepare("
-                                                                        SELECT f.nome 
-                                                                        FROM movimentacoes m 
-                                                                        JOIN funcionario f ON m.funcionario_id = f.cod_funcionario 
-                                                                        WHERE m.reagente_id = :rid AND m.tipo_movimentacao = 'criacao' 
-                                                                        LIMIT 1
-                                                                    ");
-                                                                    $stmtCriador->execute([':rid' => $r['id']]);
-                                                                    $criador = $stmtCriador->fetch(PDO::FETCH_ASSOC);
-                                                                    echo htmlspecialchars($criador['nome'] ?? 'Administrador/Semente');
-                                                                    ?>
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Modal Histórico de Movimentações (Retiradas) -->
-                                        <div class="modal fade" id="modalUsageHistory<?php echo $r['id']; ?>" tabindex="-1" aria-hidden="true">
-                                            <div class="modal-dialog modal-lg">
-                                                <div class="modal-content text-dark">
-                                                    <div class="modal-header bg-danger text-white">
-                                                        <h5 class="modal-title"><i class="fas fa-history"></i> Relatório de Movimentações: <?php echo htmlspecialchars($r['nome']); ?></h5>
-                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                    </div>
-                                                    <div class="modal-body text-start">
-                                                        <?php
-                                                        $stmtHist = $conn->prepare("
-                                                            SELECT m.*, f.nome as funcionario_nome 
-                                                            FROM movimentacoes m 
-                                                            JOIN funcionario f ON m.funcionario_id = f.cod_funcionario 
-                                                            WHERE m.reagente_id = :rid AND m.tipo_movimentacao = 'saida' 
-                                                            ORDER BY m.data_hora DESC
-                                                        ");
-                                                        $stmtHist->execute([':rid' => $r['id']]);
-                                                        $historico = $stmtHist->fetchAll(PDO::FETCH_ASSOC);
-                                                        ?>
-                                                        
-                                                        <?php if (empty($historico)): ?>
-                                                            <div class="alert alert-info text-center my-3">
-                                                                Nenhuma movimentação de retirada registrada para este reagente.
-                                                            </div>
-                                                        <?php else: ?>
-                                                            <div class="table-responsive mt-2">
-                                                                <table class="table table-striped table-hover align-middle">
-                                                                    <thead class="table-dark">
-                                                                        <tr>
-                                                                            <?php if ($isAdmin): ?>
-                                                                                <th>Data/Hora</th>
-                                                                                <th>Quem Retirou</th>
-                                                                            <?php endif; ?>
-                                                                            <th>Quantidade</th>
-                                                                            <th>Motivo Assinalado</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        <?php foreach ($historico as $h): ?>
-                                                                            <tr>
-                                                                                <?php if ($isAdmin): ?>
-                                                                                    <td><?php echo date('d/m/Y H:i', strtotime($h['data_hora'])); ?></td>
-                                                                                    <td>
-                                                                                        <i class="fas fa-user text-secondary me-1"></i>
-                                                                                        <?php echo htmlspecialchars($h['funcionario_nome']); ?>
-                                                                                    </td>
-                                                                                <?php endif; ?>
-                                                                                <td>
-                                                                                    <span class="badge bg-danger-subtle text-danger fs-6 border border-danger-subtle">
-                                                                                        - <?php echo formatarQuantidade($h['quantidade'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']); ?>
-                                                                                    </span>
-                                                                                </td>
-                                                                                <td>
-                                                                                    <span class="text-secondary"><?php echo htmlspecialchars($h['motivo_retirada'] ?? 'Não especificado'); ?></span>
-                                                                                </td>
-                                                                            </tr>
-                                                                        <?php endforeach; ?>
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                    <div class="modal-footer d-flex justify-content-between">
-                                                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetail<?php echo $r['id']; ?>">
-                                                            <i class="fas fa-arrow-left"></i> Voltar
-                                                        </button>
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -473,6 +243,242 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                 </div>
             </div>
         </form>
+
+        <!-- Modais de Ações Individuais (Fora do bulkForm) -->
+        <?php if (!empty($reagentes)): ?>
+            <?php foreach ($reagentes as $r): ?>
+                <!-- Modal Remover -->
+                <div class="modal fade" id="modalRemove<?php echo $r['id']; ?>" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content text-dark">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Retirar do Estoque: <?php echo htmlspecialchars($r['nome']); ?></h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <form action="atualizar_estoque.php" method="POST">
+                                <div class="modal-body text-start">
+                                    <input type="hidden" name="id" value="<?php echo $r['id']; ?>">
+                                    <input type="hidden" name="operacao" value="remover">
+                                    <div class="mb-3">
+                                        <label class="form-label">Quantidade a retirar</label>
+                                        <input type="number" name="quantidade" class="form-control" min="1" max="<?php echo $r['quantidade']; ?>" required>
+                                        <div class="form-text">Estoque atual: <?php echo formatarQuantidade($r['quantidade'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']); ?></div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Motivo da retirada</label>
+                                        <select name="motivo_tipo" class="form-select select-motivo" data-reagente-id="<?php echo $r['id']; ?>" required>
+                                            <option value="uso">Uso em aula/pesquisa</option>
+                                            <option value="vencimento">Vencimento do produto</option>
+                                            <option value="outro">Outro (especificar)</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3 d-none" id="divOutro<?php echo $r['id']; ?>">
+                                        <label class="form-label">Especifique o motivo</label>
+                                        <input type="text" name="motivo_outro" class="form-control" id="inputOutro<?php echo $r['id']; ?>">
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-warning">Retirar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Detalhes -->
+                <div class="modal fade" id="modalDetail<?php echo $r['id']; ?>" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content text-dark">
+                            <div class="modal-header bg-dark text-white">
+                                <h5 class="modal-title"><i class="fas fa-flask"></i> Detalhes do Reagente: <?php echo htmlspecialchars($r['nome']); ?></h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body text-start">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Nome:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['nome']); ?></span>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Fórmula Química:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['formula_quimica'] ?? '-'); ?></span>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Número CAS:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['numero_cas'] ?? '-'); ?></span>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Massa Molar:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['massa_molar'] ?? '-'); ?> g/mol</span>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Densidade:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['densidade'] ?? '-'); ?> g/cm³</span>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Concentração:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['concentracao'] ?? '-'); ?></span>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Data de Validade:</strong> <span class="text-secondary"><?php echo date('d/m/Y', strtotime($r['validade'])); ?></span>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Fabricante:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['fabricante'] ?? '-'); ?></span>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Condição:</strong> <span class="text-secondary"><?php echo ucfirst(htmlspecialchars($r['condicao'])); ?></span>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Número NCM:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['numero_ncm'] ?? '-'); ?></span>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Nota Fiscal:</strong> <span class="text-secondary"><?php echo htmlspecialchars($r['numero_nota_fiscal'] ?? '-'); ?></span>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <strong>Produto Controlado:</strong> 
+                                        <span class="badge bg-<?php echo $r['controlado'] ? 'danger' : 'secondary'; ?>">
+                                            <?php echo $r['controlado'] ? 'Sim' : 'Não'; ?>
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <hr>
+                                
+                                <h5 class="text-dark"><i class="fas fa-chart-pie"></i> Métricas de Estoque</h5>
+                                <div class="row mt-3 text-center d-flex align-items-stretch">
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card bg-light p-3 h-100 d-flex flex-column justify-content-between">
+                                            <div>
+                                                <h6>Qtd Original</h6>
+                                                <span class="fs-6 text-primary"><?php echo formatarQuantidade($r['quantidade_original'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']); ?></span>
+                                            </div>
+                                            <small class="d-block mt-1" style="font-size: 0.75rem; visibility: hidden;">&nbsp;</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card bg-light p-3 border-danger-subtle h-100 d-flex flex-column justify-content-between" style="cursor: pointer; transition: all 0.2s;" onmouseover="this.classList.add('shadow-sm'); this.style.transform='scale(1.03)';" onmouseout="this.classList.remove('shadow-sm'); this.style.transform='scale(1)';" data-bs-toggle="modal" data-bs-target="#modalUsageHistory<?php echo $r['id']; ?>">
+                                            <div>
+                                                <h6 class="text-danger"><i class="fas fa-history me-1"></i> Qtd Utilizada</h6>
+                                                <span class="fs-6 text-danger fw-bold">
+                                                    <?php 
+                                                    $stmtSaidas = $conn->prepare("SELECT SUM(quantidade) as total FROM movimentacoes WHERE reagente_id = :rid AND tipo_movimentacao = 'saida'");
+                                                    $stmtSaidas->execute([':rid' => $r['id']]);
+                                                    $totalSaidas = $stmtSaidas->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+                                                    echo formatarQuantidade($totalSaidas, $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']);
+                                                    ?>
+                                                </span>
+                                            </div>
+                                            <small class="text-muted d-block mt-1" style="font-size: 0.75rem;"><i class="fas fa-eye"></i> Clique para ver histórico</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card bg-light p-3 h-100 d-flex flex-column justify-content-between">
+                                            <div>
+                                                <h6>Qtd em Estoque</h6>
+                                                <span class="fs-6 text-success"><?php echo formatarQuantidade($r['quantidade'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']); ?></span>
+                                            </div>
+                                            <small class="d-block mt-1" style="font-size: 0.75rem; visibility: hidden;">&nbsp;</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mt-4">
+                                    <div class="col-12">
+                                        <strong>Cadastrado por:</strong> 
+                                        <span class="text-secondary">
+                                            <?php 
+                                            $stmtCriador = $conn->prepare("
+                                                SELECT f.nome 
+                                                FROM movimentacoes m 
+                                                JOIN funcionario f ON m.funcionario_id = f.cod_funcionario 
+                                                WHERE m.reagente_id = :rid AND m.tipo_movimentacao = 'criacao' 
+                                                LIMIT 1
+                                            ");
+                                            $stmtCriador->execute([':rid' => $r['id']]);
+                                            $criador = $stmtCriador->fetch(PDO::FETCH_ASSOC);
+                                            echo htmlspecialchars($criador['nome'] ?? 'Administrador/Semente');
+                                            ?>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Histórico de Movimentações (Retiradas) -->
+                <div class="modal fade" id="modalUsageHistory<?php echo $r['id']; ?>" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content text-dark">
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title"><i class="fas fa-history"></i> Relatório de Movimentações: <?php echo htmlspecialchars($r['nome']); ?></h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body text-start">
+                                <?php
+                                $stmtHist = $conn->prepare("
+                                    SELECT m.*, f.nome as funcionario_nome 
+                                    FROM movimentacoes m 
+                                    JOIN funcionario f ON m.funcionario_id = f.cod_funcionario 
+                                    WHERE m.reagente_id = :rid AND m.tipo_movimentacao = 'saida' 
+                                    ORDER BY m.data_hora DESC
+                                ");
+                                $stmtHist->execute([':rid' => $r['id']]);
+                                $historico = $stmtHist->fetchAll(PDO::FETCH_ASSOC);
+                                ?>
+                                
+                                <?php if (empty($historico)): ?>
+                                    <div class="alert alert-info text-center my-3">
+                                        Nenhuma movimentação de retirada registrada para este reagente.
+                                    </div>
+                                <?php else: ?>
+                                    <div class="table-responsive mt-2">
+                                        <table class="table table-striped table-hover align-middle">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <?php if ($isAdmin): ?>
+                                                        <th>Data/Hora</th>
+                                                        <th>Quem Retirou</th>
+                                                    <?php endif; ?>
+                                                    <th>Quantidade</th>
+                                                    <th>Motivo Assinalado</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($historico as $h): ?>
+                                                    <tr>
+                                                        <?php if ($isAdmin): ?>
+                                                            <td><?php echo date('d/m/Y H:i', strtotime($h['data_hora'])); ?></td>
+                                                            <td>
+                                                                <i class="fas fa-user text-secondary me-1"></i>
+                                                                <?php echo htmlspecialchars($h['funcionario_nome']); ?>
+                                                            </td>
+                                                        <?php endif; ?>
+                                                        <td>
+                                                            <span class="badge bg-danger-subtle text-danger fs-6 border border-danger-subtle">
+                                                                - <?php echo formatarQuantidade($h['quantidade'], $r['unidade_medida'], $r['capacidade_medida'], $r['unidade_capacidade']); ?>
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="text-secondary"><?php echo htmlspecialchars($h['motivo_retirada'] ?? 'Não especificado'); ?></span>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            <div class="modal-footer d-flex justify-content-between">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetail<?php echo $r['id']; ?>">
+                                    <i class="fas fa-arrow-left"></i> Voltar
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

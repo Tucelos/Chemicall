@@ -11,7 +11,7 @@ class AuthController {
 
     public function login($email, $senha) {
         try {
-            $stmt = $this->conn->prepare("SELECT * FROM funcionario WHERE email = :email");
+            $stmt = $this->conn->prepare("SELECT * FROM funcionario WHERE email = :email AND status = 'ativo'");
             $stmt->bindParam(':email', $email);
             $stmt->execute();
             $user = $stmt->fetch(PDO::FETCH_ASSOC);

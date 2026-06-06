@@ -91,6 +91,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <button type="submit" class="btn btn-custom">Entrar</button>
         </form>
+        <div class="mt-3 text-center">
+            <a href="solicitar_cadastro.php" class="text-decoration-none" style="color: #006233; font-weight: 500;">Solicitar Cadastro</a>
+            <?php if (file_exists('esqueceu_senha.php')): ?>
+                <span class="text-muted mx-2">|</span>
+                <a href="esqueceu_senha.php" class="text-decoration-none text-muted">Esqueceu a senha?</a>
+            <?php endif; ?>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
