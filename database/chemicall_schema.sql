@@ -14,8 +14,12 @@ CREATE TABLE funcionario (
     cod_funcionario INT AUTO_INCREMENT PRIMARY KEY,
     senha VARCHAR(255) NOT NULL,
     nome VARCHAR(100) NOT NULL,
+    matricula VARCHAR(50) NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
+    email_secundario VARCHAR(255) NULL,
     tipo VARCHAR(20) DEFAULT 'user',
+    status VARCHAR(20) NOT NULL DEFAULT 'ativo',
+    cargo VARCHAR(100) NULL,
     acesso_controlados TINYINT(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

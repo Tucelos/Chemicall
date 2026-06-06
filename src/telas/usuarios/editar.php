@@ -31,18 +31,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tipo = $_POST['tipo'] ?? 'user';
     $dados = [
         'nome' => $_POST['nome'],
+        'matricula' => $_POST['matricula'] ?? null,
         'email' => $_POST['email'],
+        'email_secundario' => $_POST['email_secundario'] ?? null,
+        'cargo' => $_POST['cargo'] ?? null,
         'tipo' => $tipo,
         'acesso_controlados' => (($tipo === 'admin' || $tipo === 'gestor') || isset($_POST['acesso_controlados'])) ? 1 : 0,
         'senha' => $_POST['senha'] // Optional
     ];
 
-    if ($controller->atualizar($id, $dados)) {
-        $msg = 'Usuário atualizado com sucesso!';
-        // Refresh data
-        $usuario = $controller->buscarPorId($id);
+    if (!empty($_POST['senha']) && strlen($_POST['senha']) < 8) {
+        $error = 'A nova senha deve ter no mínimo 8 caracteres.';
     } else {
-        $error = 'Erro ao atualizar usuário.';
+        if ($controller->atualizar($id, $dados)) {
+            $msg = 'Usuário atualizado com sucesso!';
+            // Refresh data
+            $usuario = $controller->buscarPorId($id);
+        } else {
+            $error = 'Erro ao atualizar usuário.';
+        }
     }
 }
 ?>
@@ -87,9 +94,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <input type="text" class="form-control" id="nome" name="nome" required value="<?php echo htmlspecialchars($usuario['nome']); ?>">
                             </div>
 
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="matricula" class="form-label">Matrícula</label>
+                                    <input type="text" class="form-control" id="matricula" name="matricula" required value="<?php echo htmlspecialchars($usuario['matricula'] ?? ''); ?>">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="cargo" class="form-label">Cargo / Função</label>
+                                    <input type="text" class="form-control" id="cargo" name="cargo" required value="<?php echo htmlspecialchars($usuario['cargo'] ?? ''); ?>">
+                                </div>
+                            </div>
+
                             <div class="mb-3">
-                                <label for="email" class="form-label">Email</label>
+                                <label for="email" class="form-label">Email Principal</label>
                                 <input type="email" class="form-control" id="email" name="email" required value="<?php echo htmlspecialchars($usuario['email']); ?>">
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="email_secundario" class="form-label">Email Secundário (Opcional)</label>
+                                <input type="email" class="form-control" id="email_secundario" name="email_secundario" value="<?php echo htmlspecialchars($usuario['email_secundario'] ?? ''); ?>">
                             </div>
 
                             <div class="mb-3">
