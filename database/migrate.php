@@ -17,14 +17,19 @@ if (PHP_SAPI !== 'cli') {
 
 require_once __DIR__ . '/../src/db/db_connection.php';
 
+/** Falhas acumuladas, para o script poder encerrar com código de erro. */
+$falhas = [];
+
 /** Executa uma instrução e informa o resultado. */
 function passo(PDO $conn, string $descricao, string $sql): void
 {
+    global $falhas;
     try {
         $conn->exec($sql);
         echo "  [ok]     {$descricao}\n";
     } catch (PDOException $e) {
         echo "  [ERRO]   {$descricao}: " . $e->getMessage() . "\n";
+        $falhas[] = $descricao;
     }
 }
 
@@ -108,15 +113,36 @@ if (!temIndice($conn, 'reagentes', 'idx_ativo_qtd')) {
 // 4. Normalização de perfis --------------------------------------------------
 // O sistema reconhece apenas 'admin', 'gestor' e 'user'. Perfis legados como
 // 'docente' caíam silenciosamente no perfil mais restrito.
-$legados = $conn->query(
-    "SELECT COUNT(*) FROM funcionario WHERE tipo NOT IN ('admin','gestor','user')"
-)->fetchColumn();
+// A consulta é protegida porque este script também roda contra bancos ainda
+// incompletos; sem isto, a ausência da tabela derrubava a migração com um
+// stack trace em vez de uma mensagem útil.
+try {
+    $legados = (int) $conn->query(
+        "SELECT COUNT(*) FROM funcionario WHERE tipo NOT IN ('admin','gestor','user')"
+    )->fetchColumn();
 
-if ((int) $legados > 0) {
-    passo($conn, "normalização de {$legados} perfil(is) legado(s) para 'user'",
-        "UPDATE funcionario SET tipo = 'user' WHERE tipo NOT IN ('admin','gestor','user')");
-} else {
-    echo "  [pulado] nenhum perfil legado a normalizar\n";
+    if ($legados > 0) {
+        passo($conn, "normalização de {$legados} perfil(is) legado(s) para 'user'",
+            "UPDATE funcionario SET tipo = 'user' WHERE tipo NOT IN ('admin','gestor','user')");
+    } else {
+        echo "  [pulado] nenhum perfil legado a normalizar\n";
+    }
+} catch (PDOException $e) {
+    echo "  [ERRO]   verificação de perfis legados: " . $e->getMessage() . "\n";
+    $falhas[] = 'verificação de perfis legados';
 }
 
-echo "Migração concluída.\n";
+// Sem isto, uma migração que falhou pela metade terminava anunciando sucesso.
+if (!empty($falhas)) {
+    echo "\nMigração INCOMPLETA — " . count($falhas) . " passo(s) falharam:\n";
+    foreach ($falhas as $f) {
+        echo "  - {$f}\n";
+    }
+    echo "\nCausa mais comum: o usuário do banco não tem permissão de CREATE/ALTER.\n"
+       . "Rode a migração com um usuário administrador do MySQL, por exemplo:\n"
+       . "  php database/migrate.php   (com DB_USER=root no .env, ou temporariamente)\n";
+    exit(1);
+}
+
+echo "Migração concluída com sucesso.\n";
+exit(0);

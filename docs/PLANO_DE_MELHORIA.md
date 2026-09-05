@@ -592,6 +592,64 @@ melhor parte do código.
 
 ---
 
+## Parte 2.4 — Reprodutibilidade da instalação
+
+O `README.md` foi reescrito e **validado executando cada comando do zero**: cópia
+limpa do projeto em outra pasta, banco novo, usuário de banco novo, `.env` criado
+a partir do modelo. Os obstáculos abaixo apareceram durante essa execução — não
+por leitura do código.
+
+### Obstáculos encontrados ao seguir o README antigo
+
+| Obstáculo | Efeito para quem instala | Tratamento |
+|---|---|---|
+| `.env` ausente (é ignorado pelo git) | A aplicação responde **HTTP 503 com mensagem genérica**, sem dizer o que falta | README explica o passo e a seção de diagnóstico aponta o log |
+| O schema começa com `DROP DATABASE IF EXISTS chemicall` | Quem "reimporta o schema" para atualizar **perde todos os dados** | Aviso destacado no passo 3 |
+| `migrate.php` exigia `CREATE`/`ALTER`, que o usuário recomendado no `.env.example` não tem | A migração falhava passo a passo e ainda assim imprimia "Migração concluída" | O script passou a acumular falhas, listá-las, explicar a causa provável e encerrar com código 1 |
+| `migrate.php` quebrava com stack trace em banco incompleto | Saída ilegível em vez de mensagem útil | A verificação de perfis legados foi envolvida em `try/catch` |
+| O índice `movimentacoes.idx_tipo_data` não estava no schema | Instalação nova ficava sem ele até rodar a migração | Índice incorporado ao `chemicall_schema.sql` — instalação nova não precisa mais de migração |
+| `variables_order = GPCS` no php.ini do XAMPP (sem o `E`) | Variáveis de ambiente do shell **não chegavam** ao `$_ENV`, então sobrescrever a configuração pontualmente não funcionava | `env()` passou a consultar também `getenv()`; variáveis de ambiente agora têm precedência sobre o `.env` |
+
+Esse último ponto vale além do README: sem ele, não era possível configurar a
+aplicação por variáveis de ambiente — o caminho normal em servidores gerenciados,
+contêineres e pipelines de CI.
+
+### Inconsistências de licença
+
+O repositório declara **três licenças diferentes**:
+
+| Onde | O que diz |
+|---|---|
+| Badge do `README.md` | MIT |
+| `LICENSE` (674 linhas) | GNU GPL v3.0 |
+| `NOTICE` | Apache License 2.0 |
+
+GPL e Apache 2.0 são incompatíveis entre si. O badge foi corrigido para refletir
+o arquivo `LICENSE` (GPL-3.0), que é o texto legalmente relevante, e o `NOTICE`
+ficou sinalizado no README como pendência — a decisão de qual licença adotar é do
+autor, não uma correção técnica.
+
+### Validação executada
+
+Instalação completa em pasta separada (`chemicall-repro`), banco próprio e
+usuário de banco dedicado. Todos os passos do README executados literalmente:
+
+| Verificação | Resultado |
+|---|---|
+| Importação do schema | 5 tabelas, 2 usuários, 15 reagentes, 15 movimentações |
+| Migração em instalação nova | Todos os passos `[pulado]`, código de saída 0 |
+| Migração com usuário sem DDL | Falhas listadas, causa explicada, código de saída 1 |
+| Login com as credenciais documentadas | `admin@chemicall.com` e `prof@chemicall.com` — ambos OK |
+| Telas após login | dashboard, estoque, usuários, relatórios, estatísticas — HTTP 200, zero avisos |
+| Retirada de 1 unidade | Saldo decrementado e registrado no histórico |
+| Retirada de 999 (acima do saldo) | Recusada, saldo intacto, nada gravado |
+| Geração de PDF | `application/pdf`, ~19 KB |
+
+Todos os artefatos de teste (pasta, bancos e usuário de banco) foram removidos ao
+final.
+
+---
+
 ## Parte 3 — Como os testes foram feitos
 
 Ambiente: PHP 8.2.12, MariaDB 10.4.32, servidor embutido do PHP servindo

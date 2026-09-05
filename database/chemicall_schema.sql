@@ -93,7 +93,9 @@ CREATE TABLE movimentacoes (
     motivo_retirada VARCHAR(255) DEFAULT NULL,
     data_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (reagente_id) REFERENCES reagentes(id) ON DELETE CASCADE,
-    FOREIGN KEY (funcionario_id) REFERENCES funcionario(cod_funcionario) ON DELETE CASCADE
+    FOREIGN KEY (funcionario_id) REFERENCES funcionario(cod_funcionario) ON DELETE CASCADE,
+    -- Apoia as consultas de consumo em estatisticas.php e no relatório PDF.
+    INDEX idx_tipo_data (tipo_movimentacao, data_hora)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ----------------------------------------------------------

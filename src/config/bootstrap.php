@@ -30,7 +30,10 @@ if (is_readable($envPath)) {
         if (preg_match('/^"(.*)"$/s', $value, $m) || preg_match("/^'(.*)'$/s", $value, $m)) {
             $value = $m[1];
         }
-        if (!isset($_ENV[$name])) {
+        // Uma variável já definida no ambiente real tem precedência sobre o
+        // .env, permitindo sobrescrever a configuração pontualmente — por
+        // exemplo, rodar a migração com outro usuário de banco.
+        if (!isset($_ENV[$name]) && getenv($name) === false) {
             putenv("{$name}={$value}");
             $_ENV[$name] = $value;
             $_SERVER[$name] = $value;
@@ -38,10 +41,20 @@ if (is_readable($envPath)) {
     }
 }
 
-/** Lê uma variável de ambiente com valor padrão. */
+/**
+ * Lê uma variável de configuração.
+ *
+ * Consulta também o ambiente do processo porque o php.ini do XAMPP usa
+ * `variables_order = GPCS` (sem o `E`), e nesse caso `$_ENV` não recebe as
+ * variáveis exportadas pelo shell.
+ */
 function env(string $key, $default = null)
 {
-    return $_ENV[$key] ?? $default;
+    if (isset($_ENV[$key])) {
+        return $_ENV[$key];
+    }
+    $doAmbiente = getenv($key);
+    return $doAmbiente === false ? $default : $doAmbiente;
 }
 
 define('APP_ENV', strtolower((string) env('APP_ENV', 'production')));
