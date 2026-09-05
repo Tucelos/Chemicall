@@ -1,65 +1,106 @@
 <?php
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
-
-require 'PHPMailer/src/Exception.php';
-require 'PHPMailer/src/PHPMailer.php';
-require 'PHPMailer/src/SMTP.php';
-
 require_once __DIR__ . '/../../db/db_connection.php';
+require_once __DIR__ . '/../../controllers/FuncionarioController.php';
 
-// Verifica se o token foi passado pela URL
-if (isset($_GET['token'])) {
-    $token = $_GET['token'];
-    $hashedToken = hash('sha256', $token); // Garante que o token seja passado de forma consistente
+$token      = (string) ($_GET['token'] ?? '');
+$mensagem   = '';
+$sucesso    = false;
+$tokenValido = false;
+$email      = null;
 
-    // Consulta para verificar se o token existe no banco de dados (usando PDO e Prepared Statements)
-    $stmt = $conn->prepare("SELECT * FROM esqueceu_senha WHERE token = :token");
-    $stmt->execute([':token' => $hashedToken]);
-    $tokenData = $stmt->fetch(PDO::FETCH_ASSOC);
+/**
+ * Recupera o registro do token se ele existir, ainda não tiver sido usado e
+ * estiver dentro do prazo de validade.
+ */
+function buscarTokenValido(PDO $conn, string $token): ?array
+{
+    if ($token === '') {
+        return null;
+    }
+    $stmt = $conn->prepare(
+        'SELECT id, email FROM esqueceu_senha
+         WHERE token = :token
+           AND usado_em IS NULL
+           AND expira_em IS NOT NULL
+           AND expira_em > NOW()
+         LIMIT 1'
+    );
+    $stmt->execute([':token' => hash('sha256', $token)]);
+    $registro = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $registro ?: null;
+}
 
-    // Verifica se o token é válido
-    if ($tokenData) {
-        $email = $tokenData['email'];
-        
-        if (isset($_POST['password']) && isset($_POST['confirmPassword'])) {
-            $password = $_POST['password'];
-            $confirmPassword = $_POST['confirmPassword'];
+try {
+    $registro = buscarTokenValido($conn, $token);
 
-            // Verifica se as senhas coincidem
-            if ($password === $confirmPassword) {
-                // Se a senha não estiver vazia
-                if (!empty($password)) {
-                    // Criptografa a senha
-                    $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+    if (!$registro) {
+        $mensagem = 'Link de redefinição inválido ou expirado. Solicite um novo.';
+    } else {
+        $tokenValido = true;
+        $email = $registro['email'];
 
-                    // Atualiza a senha no banco de dados (usando PDO e Prepared Statements)
-                    $update_stmt = $conn->prepare("UPDATE funcionario SET senha = :senha WHERE email = :email");
-                    $res = $update_stmt->execute([':senha' => $hashedPassword, ':email' => $email]);
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            csrf_exigir();
 
-                    if ($res) {
-                        // Deleta o token para evitar que seja reutilizado
-                        $delete_stmt = $conn->prepare("DELETE FROM esqueceu_senha WHERE email = :email");
-                        $delete_stmt->execute([':email' => $email]);
+            $password        = (string) ($_POST['password'] ?? '');
+            $confirmPassword = (string) ($_POST['confirmPassword'] ?? '');
 
-                        echo "<script>alert('Senha atualizada com sucesso!'); window.location.href='index.php';</script>";
-                    } else {
-                        echo "<script>alert('Erro ao atualizar a senha. Tente novamente.');</script>";
-                    }
-                } else {
-                    echo "<script>alert('A senha não pode estar vazia.');</script>";
-                }
+            if ($password !== $confirmPassword) {
+                $mensagem = 'As senhas não coincidem. Tente novamente.';
+            } elseif ($erro = FuncionarioController::validarSenha($password)) {
+                $mensagem = $erro;
             } else {
-                echo "<script>alert('As senhas não coincidem. Tente novamente.');</script>";
+                $conn->beginTransaction();
+
+                // A cláusula usado_em IS NULL garante o consumo único do token
+                // mesmo se dois envios chegarem ao mesmo tempo.
+                $marcar = $conn->prepare(
+                    'UPDATE esqueceu_senha SET usado_em = NOW()
+                     WHERE id = :id AND usado_em IS NULL'
+                );
+                $marcar->execute([':id' => $registro['id']]);
+
+                if ($marcar->rowCount() !== 1) {
+                    $conn->rollBack();
+                    $mensagem = 'Este link já foi utilizado. Solicite um novo.';
+                    $tokenValido = false;
+                } else {
+                    $atualizar = $conn->prepare(
+                        "UPDATE funcionario SET senha = :senha
+                         WHERE email = :email AND status = 'ativo'"
+                    );
+                    $atualizar->execute([
+                        ':senha' => password_hash($password, PASSWORD_DEFAULT),
+                        ':email' => $email,
+                    ]);
+
+                    if ($atualizar->rowCount() === 0) {
+                        $conn->rollBack();
+                        $mensagem = 'Não foi possível redefinir a senha desta conta.';
+                        $tokenValido = false;
+                    } else {
+                        // Invalida qualquer outro token pendente do mesmo e-mail.
+                        $conn->prepare('DELETE FROM esqueceu_senha WHERE email = :email')
+                             ->execute([':email' => $email]);
+
+                        $conn->commit();
+                        $sucesso = true;
+                        $tokenValido = false;
+                        $mensagem = 'Senha atualizada com sucesso! Você já pode entrar com a nova senha.';
+                    }
+                }
             }
         }
-    } else {
-        // Caso o token seja inválido
-        echo "<script>alert('Token inválido.');</script>";
     }
+} catch (PDOException $e) {
+    if ($conn->inTransaction()) {
+        $conn->rollBack();
+    }
+    error_log('[Chemicall] Falha na redefinição de senha: ' . $e->getMessage());
+    $mensagem = 'Não foi possível processar a redefinição. Tente novamente.';
+    $tokenValido = false;
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -72,47 +113,61 @@ if (isset($_GET['token'])) {
 
 <div class="login-box">
     <center>
-    <h1>Chemicall</h1>
+        <h1>Chemicall</h1>
     </center>
 
-    <form method="POST" id="reset-password-form">
-        <h4 style="text-align: center;">Redefinir Senha</h4>
-        <p>Agora, por favor, insira a nova senha que você gostaria de usar para a sua conta.</p>
+    <?php if ($mensagem): ?>
+        <p style="text-align:center; color: <?php echo $sucesso ? '#1aa153' : '#c0392b'; ?>;">
+            <?php echo e($mensagem); ?>
+        </p>
+    <?php endif; ?>
 
-        <div class="user-box">
-            <input type="password" name="password" id="password" required>
-            <label for="password">Nova Senha</label>
-        </div>
+    <?php if ($tokenValido): ?>
+        <form method="POST" id="reset-password-form" action="reset.php?token=<?php echo e($token); ?>">
+            <?php echo csrf_field(); ?>
+            <h4 style="text-align: center;">Redefinir Senha</h4>
+            <p>Escolha a nova senha da sua conta. Ela deve ter no mínimo
+               <?php echo FuncionarioController::SENHA_MINIMA; ?> caracteres, com ao menos uma letra e um número.</p>
 
-        <div class="user-box">
-            <input type="password" name="confirmPassword" id="confirmPassword" required>
-            <label for="confirmPassword">Confirmar Senha</label>
-        </div>
+            <div class="user-box">
+                <input type="password" name="password" id="password" minlength="<?php echo FuncionarioController::SENHA_MINIMA; ?>" required>
+                <label for="password">Nova Senha</label>
+            </div>
 
+            <div class="user-box">
+                <input type="password" name="confirmPassword" id="confirmPassword" minlength="<?php echo FuncionarioController::SENHA_MINIMA; ?>" required>
+                <label for="confirmPassword">Confirmar Senha</label>
+            </div>
+
+            <center>
+                <input type="submit" value="Atualizar Senha" id="update-password-button">
+            </center>
+        </form>
+    <?php else: ?>
         <center>
-            <input type="button" value="Atualizar Senha" id="update-password-button" onclick="submitForm()">
+            <p><a href="index.php">Voltar para o login</a></p>
+            <?php if (!$sucesso): ?>
+                <p><a href="esqueceu_senha.php">Solicitar novo link</a></p>
+            <?php endif; ?>
         </center>
-    </form>
+    <?php endif; ?>
 </div>
 
 <script>
-// Função para enviar o formulário e exibir alertas
-function submitForm() {
-    var password = document.getElementById('password').value;
-    var confirmPassword = document.getElementById('confirmPassword').value;
-
-    // Verifica se as senhas coincidem
-    if (password === confirmPassword) {
-        if (password !== "") {
-            // Submete o formulário
-            document.getElementById('reset-password-form').submit();
-        } else {
-            alert('A senha não pode estar vazia.');
-        }
-    } else {
-        alert('As senhas não coincidem. Tente novamente.');
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('reset-password-form');
+    if (!form) {
+        return;
     }
-}
+    form.addEventListener('submit', function (e) {
+        const senha = document.getElementById('password').value;
+        const confirmacao = document.getElementById('confirmPassword').value;
+        if (senha !== confirmacao) {
+            e.preventDefault();
+            alert('As senhas não coincidem. Tente novamente.');
+        }
+    });
+});
 </script>
 
 </body>

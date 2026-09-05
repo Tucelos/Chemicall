@@ -4,40 +4,65 @@ require_once __DIR__ . '/../../db/db_connection.php';
 
 $error = '';
 $success = '';
+$nome = $matricula = $email = $cargo = '';
+
+// Mensagem única para qualquer desfecho: um cadastro público não deve revelar
+// quais e-mails já existem no sistema.
+const MSG_SOLICITACAO_ENVIADA =
+    'Se os dados informados forem válidos, sua solicitação será analisada por um administrador. '
+    . 'Você receberá o retorno pelo e-mail informado.';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nome = $_POST['nome'] ?? '';
-    $matricula = $_POST['matricula'] ?? '';
-    $email = $_POST['email'] ?? '';
-    $cargo = $_POST['cargo'] ?? '';
-    $senha = $_POST['senha'] ?? '';
-    $confirmar_senha = $_POST['confirmar_senha'] ?? '';
+    csrf_exigir();
 
-    if (empty($nome) || empty($matricula) || empty($email) || empty($cargo) || empty($senha)) {
+    $nome            = trim((string) ($_POST['nome'] ?? ''));
+    $matricula       = trim((string) ($_POST['matricula'] ?? ''));
+    $email           = trim((string) ($_POST['email'] ?? ''));
+    $cargo           = trim((string) ($_POST['cargo'] ?? ''));
+    $senha           = (string) ($_POST['senha'] ?? '');
+    $confirmar_senha = (string) ($_POST['confirmar_senha'] ?? '');
+
+    // Teto para a fila de aprovação: impede que um script encha a tabela de
+    // funcionários com cadastros pendentes.
+    $limiteAtingido = false;
+    try {
+        $stmtLimite = $conn->prepare(
+            "SELECT COUNT(*) FROM funcionario WHERE status = 'pendente'"
+        );
+        $stmtLimite->execute();
+        $limiteAtingido = (int) $stmtLimite->fetchColumn() >= 50;
+    } catch (PDOException $e) {
+        error_log('[Chemicall] Falha ao verificar fila de solicitações: ' . $e->getMessage());
+    }
+
+    if ($limiteAtingido) {
+        $error = 'Há muitas solicitações aguardando análise. Tente novamente mais tarde.';
+    } elseif ($nome === '' || $matricula === '' || $email === '' || $cargo === '' || $senha === '') {
         $error = 'Todos os campos são obrigatórios!';
-    } elseif (strlen($senha) < 8) {
-        $error = 'A senha deve ter no mínimo 8 caracteres!';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Informe um e-mail válido!';
     } elseif ($senha !== $confirmar_senha) {
         $error = 'As senhas não coincidem!';
+    } elseif ($erroSenha = FuncionarioController::validarSenha($senha)) {
+        $error = $erroSenha;
     } else {
         $controller = new FuncionarioController($conn);
-        $dados = [
-            'nome' => $nome,
-            'matricula' => $matricula,
-            'email' => $email,
-            'cargo' => $cargo,
-            'senha' => $senha,
-            'tipo' => 'user',             // Usuário comum por padrão
-            'status' => 'pendente',        // Pendente de aprovação do administrador
-            'acesso_controlados' => 0      // Sem acesso a controlados por padrão
-        ];
+        $res = $controller->criar([
+            'nome'               => $nome,
+            'matricula'          => $matricula,
+            'email'              => $email,
+            'cargo'              => $cargo,
+            'senha'              => $senha,
+            'tipo'               => 'user',      // Usuário comum por padrão
+            'status'             => 'pendente',  // Pendente de aprovação do administrador
+            'acesso_controlados' => 0,           // Sem acesso a controlados por padrão
+        ]);
 
-        $res = $controller->criar($dados);
-        if ($res['success']) {
-            $success = 'Sua solicitação de cadastro foi enviada com sucesso! Um administrador irá analisar o seu pedido.';
-        } else {
-            $error = $res['message'];
+        // Sucesso e e-mail duplicado devolvem a mesma resposta; o detalhe fica no log.
+        if (!$res['success']) {
+            error_log('[Chemicall] Solicitação de cadastro recusada: ' . $res['message']);
         }
+        $success = MSG_SOLICITACAO_ENVIADA;
     }
 }
 ?>
@@ -47,8 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solicitar Cadastro - Chemicall</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
     <style>
         body {
             background-color: #f0f2f5;
@@ -97,33 +122,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <h4 class="text-center mb-4" style="color: #333;">Solicitar Acesso ao Sistema</h4>
 
         <?php if ($error): ?>
-            <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
+            <div class="alert alert-danger"><?php echo e($error); ?></div>
         <?php endif; ?>
 
         <?php if ($success): ?>
             <div class="alert alert-success">
-                <?php echo htmlspecialchars($success); ?>
+                <?php echo e($success); ?>
                 <div class="mt-3 text-center">
                     <a href="index.php" class="btn btn-outline-success btn-sm">Voltar para o Login</a>
                 </div>
             </div>
         <?php else: ?>
             <form method="POST">
+                <?php echo csrf_field(); ?>
                 <div class="mb-3">
                     <label for="nome" class="form-label fw-semibold">Nome Completo</label>
-                    <input type="text" class="form-control" id="nome" name="nome" value="<?php echo htmlspecialchars($nome ?? ''); ?>" required>
+                    <input type="text" class="form-control" id="nome" name="nome" value="<?php echo e($nome ?? ''); ?>" required>
                 </div>
                 <div class="mb-3">
                     <label for="matricula" class="form-label fw-semibold">Matrícula</label>
-                    <input type="text" class="form-control" id="matricula" name="matricula" value="<?php echo htmlspecialchars($matricula ?? ''); ?>" placeholder="Ex: 202612345" required>
+                    <input type="text" class="form-control" id="matricula" name="matricula" value="<?php echo e($matricula ?? ''); ?>" placeholder="Ex: 202612345" required>
                 </div>
                 <div class="mb-3">
                     <label for="email" class="form-label fw-semibold">Email institucional</label>
-                    <input type="email" class="form-control" id="email" name="email" value="<?php echo htmlspecialchars($email ?? ''); ?>" required>
+                    <input type="email" class="form-control" id="email" name="email" value="<?php echo e($email ?? ''); ?>" required>
                 </div>
                 <div class="mb-3">
                     <label for="cargo" class="form-label fw-semibold">Cargo / Função</label>
-                    <input type="text" class="form-control" id="cargo" name="cargo" value="<?php echo htmlspecialchars($cargo ?? ''); ?>" placeholder="Ex: Professor, Técnico de Laboratório" required>
+                    <input type="text" class="form-control" id="cargo" name="cargo" value="<?php echo e($cargo ?? ''); ?>" placeholder="Ex: Professor, Técnico de Laboratório" required>
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -145,6 +171,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </body>
 </html>

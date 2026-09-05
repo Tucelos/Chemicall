@@ -1,0 +1,3 @@
+# Scripts de manutenção do banco (migração e carga de dados de exemplo) são de
+# uso exclusivo pela linha de comando. Nenhum deles deve ser alcançável pela web.
+Require all denied

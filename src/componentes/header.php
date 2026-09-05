@@ -1,23 +1,22 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 require_once __DIR__ . '/../db/db_connection.php';
 require_once __DIR__ . '/../controllers/FuncionarioController.php';
 
-$userType = $_SESSION['user_type'] ?? 'docente';
-$userId = $_SESSION['user_id'] ?? null;
-$usuarioLogado = null;
+// O cabeçalho só é renderizado dentro de páginas autenticadas; sem sessão não
+// há nada a exibir.
+if (empty($_SESSION['user_id'])) {
+    return;
+}
+
+$userType = $_SESSION['user_type'] ?? 'user';
+$userId = (int) $_SESSION['user_id'];
 $solicitacoesPendentes = [];
 
-if ($userId) {
-    $funcionarioCtrl = new FuncionarioController($conn);
-    $usuarioLogado = $funcionarioCtrl->buscarPorId($userId);
-    
-    if ($userType === 'admin') {
-        $solicitacoesPendentes = $funcionarioCtrl->listarSolicitacoesPendentes();
-    }
+$funcionarioCtrl = new FuncionarioController($conn);
+$usuarioLogado = $funcionarioCtrl->buscarPorId($userId);
+
+if ($userType === 'admin') {
+    $solicitacoesPendentes = $funcionarioCtrl->listarSolicitacoesPendentes();
 }
 ?>
 <style>
@@ -192,6 +191,7 @@ if ($userId) {
                     <!-- Tab Pane 1 (Dados + Senha) -->
                     <div class="<?php echo ($userType === 'admin') ? 'tab-pane fade show active p-4' : ''; ?>" id="dados-tab-pane" role="tabpanel" aria-labelledby="dados-tab" tabindex="0">
                         <form id="formAtualizarPerfil" method="POST">
+                            <?php echo csrf_field(); ?>
                             <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-info-circle text-muted me-1"></i> Dados Cadastrais</h6>
                             <div class="row g-3 mb-4">
                                 <div class="col-md-6">
@@ -391,6 +391,7 @@ function processarSolicitacao(id, acao) {
     const formData = new FormData();
     formData.append('id', id);
     formData.append('acao', acao);
+    formData.append('_csrf', <?php echo json_encode(csrf_token()); ?>);
 
     fetch('../../telas/usuarios/processar_solicitacao.php', {
         method: 'POST',

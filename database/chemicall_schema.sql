@@ -26,11 +26,28 @@ CREATE TABLE funcionario (
 -- ----------------------------------------------------------
 -- 2. Tabela: esqueceu_senha (Tokens de recuperação)
 -- ----------------------------------------------------------
+-- O token é gravado como hash SHA-256; `expira_em` define a validade e
+-- `usado_em` garante que cada link só possa ser consumido uma vez.
 CREATE TABLE esqueceu_senha (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL,
     token VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    expira_em DATETIME NULL,
+    usado_em DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_token (token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ----------------------------------------------------------
+-- 2.1 Tabela: tentativas_login (proteção contra força bruta)
+-- ----------------------------------------------------------
+CREATE TABLE tentativas_login (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    ip VARCHAR(45) NOT NULL,
+    tentado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_email_data (email, tentado_em),
+    INDEX idx_ip_data (ip, tentado_em)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ----------------------------------------------------------
@@ -60,6 +77,11 @@ CREATE TABLE reagentes (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ----------------------------------------------------------
+-- 3.1 Índices de apoio às consultas de estoque e relatórios
+-- ----------------------------------------------------------
+ALTER TABLE reagentes ADD INDEX idx_ativo_qtd (ativo, quantidade);
+
+-- ----------------------------------------------------------
 -- 4. Tabela: movimentacoes (Histórico de logs do estoque)
 -- ----------------------------------------------------------
 CREATE TABLE movimentacoes (
@@ -75,7 +97,13 @@ CREATE TABLE movimentacoes (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ----------------------------------------------------------
--- 5. Inserções: Funcionários Iniciais (Senha padrão: admin123)
+-- 5. Inserções: Funcionários Iniciais
+--
+-- ATENÇÃO: a senha destas contas é `admin123`, pública neste arquivo e
+-- destinada apenas a demonstração. Antes de qualquer uso real, troque a senha
+-- do administrador e remova a conta de teste.
+--
+-- Perfis reconhecidos pelo sistema: 'admin', 'gestor' e 'user'.
 -- ----------------------------------------------------------
 INSERT INTO funcionario (cod_funcionario, senha, nome, email, tipo, acesso_controlados) VALUES
 (1, '$2y$10$1X5w5id2V0EjyF8VA/AhwuUbstosnL05OfZVhY07iGfRlWxsxlpye', 'Administrador', 'admin@chemicall.com', 'admin', 1),

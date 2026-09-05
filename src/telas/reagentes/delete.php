@@ -1,21 +1,27 @@
 <?php
 require_once __DIR__ . '/../../controllers/AuthController.php';
 require_once __DIR__ . '/../../controllers/ReagenteController.php';
-require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated() || (!$auth->isAdmin() && !$auth->isGestor())) {
-    header('Location: index.php');
+$auth->exigirGestao('index.php');
+
+// Exclusão só por POST com token: um GET podia ser disparado por um simples
+// <img src="delete.php?id=..."> em outro site (CSRF).
+exigir_post();
+csrf_exigir();
+
+$id = filter_var($_POST['id'] ?? null, FILTER_VALIDATE_INT);
+
+if (!$id) {
+    header('Location: index.php?error=' . urlencode('Item inválido.'));
     exit();
 }
 
 $controller = new ReagenteController($conn);
-$id = $_GET['id'] ?? null;
 
-if ($id) {
-    $controller->deletar($id);
+if ($controller->deletar($id)) {
+    header('Location: index.php?msg=' . urlencode('Reagente excluído com sucesso!'));
+} else {
+    header('Location: index.php?error=' . urlencode('Não foi possível excluir o reagente.'));
 }
-
-header('Location: index.php');
 exit();
-?>

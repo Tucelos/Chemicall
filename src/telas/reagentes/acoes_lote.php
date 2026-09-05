@@ -1,65 +1,94 @@
 <?php
 require_once __DIR__ . '/../../controllers/AuthController.php';
 require_once __DIR__ . '/../../controllers/ReagenteController.php';
-require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated()) {
-    header('Location: ../login/index.php');
+$auth->exigirLogin('../login/index.php');
+
+exigir_post();
+csrf_exigir();
+
+$acao = $_POST['acao'] ?? '';
+$ids  = $_POST['ids'] ?? [];
+
+if (!is_array($ids) || empty($ids)) {
+    header('Location: index.php?error=' . urlencode('Nenhum item selecionado'));
     exit();
 }
 
-$isAdmin = $auth->isAdmin();
-$isGestor = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'gestor';
+// Normaliza a seleção para inteiros válidos e sem duplicatas.
+$ids = array_values(array_unique(array_filter(
+    array_map(static fn($v) => filter_var($v, FILTER_VALIDATE_INT), $ids),
+    static fn($v) => $v !== false && $v > 0
+)));
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $acao = $_POST['acao'] ?? '';
-    $ids = $_POST['ids'] ?? [];
+if (empty($ids)) {
+    header('Location: index.php?error=' . urlencode('Seleção inválida'));
+    exit();
+}
 
-    if (empty($ids)) {
-        header('Location: index.php?error=Nenhum item selecionado');
+$reagenteController = new ReagenteController($conn);
+
+if ($acao === 'excluir') {
+    if (!$auth->podeGerenciarEstoque()) {
+        header('Location: index.php?error=' . urlencode('Acesso negado'));
         exit();
     }
 
-    $reagenteController = new ReagenteController($conn);
+    $excluidos = 0;
+    foreach ($ids as $id) {
+        if ($reagenteController->deletar($id)) {
+            $excluidos++;
+        }
+    }
 
-    if ($acao === 'excluir') {
-        // Apenas admin e gestor podem excluir
-        if (!$isAdmin && !$isGestor) {
-            header('Location: index.php?error=Acesso negado');
-            exit();
+    $msg = $excluidos === count($ids)
+        ? "{$excluidos} item(ns) excluído(s) com sucesso"
+        : "{$excluidos} de " . count($ids) . ' item(ns) excluído(s); os demais falharam';
+    header('Location: index.php?msg=' . urlencode($msg));
+    exit();
+}
+
+if ($acao === 'retirar') {
+    $quantidades = $_POST['quantidades'] ?? [];
+    $motivoTipo  = $_POST['motivo_tipo'] ?? '';
+
+    if ($motivoTipo === 'outro') {
+        $motivo = trim((string) ($_POST['motivo_outro'] ?? ''));
+        $motivo = $motivo === '' ? 'Outro motivo' : mb_substr($motivo, 0, 255);
+    } else {
+        $motivo = $motivoTipo === 'vencimento' ? 'Vencimento do produto' : 'Uso em aula/pesquisa';
+    }
+
+    $retirados = 0;
+    $falhas    = [];
+
+    foreach ($ids as $id) {
+        $qtd = $quantidades[$id] ?? null;
+        if ($qtd === null || $qtd === '' || (int) $qtd <= 0) {
+            continue;
         }
-        foreach ($ids as $id) {
-            $reagenteController->deletar($id);
-        }
-        header('Location: index.php?msg=Itens excluídos com sucesso');
-        exit();
-    } elseif ($acao === 'retirar') {
-        $quantidades = $_POST['quantidades'] ?? [];
-        $motivo_tipo = $_POST['motivo_tipo'] ?? '';
-        
-        $motivo = null;
-        if ($motivo_tipo === 'outro') {
-            $motivo = $_POST['motivo_outro'] ?? 'Outro motivo';
+
+        $resultado = $reagenteController->atualizarQuantidade($id, $qtd, 'remover', $motivo);
+        if ($resultado['success']) {
+            $retirados++;
         } else {
-            $motivo = $motivo_tipo === 'vencimento' ? 'Vencimento do produto' : 'Uso em aula/pesquisa';
+            $falhas[] = "#{$id}: {$resultado['message']}";
         }
+    }
 
-        $algumRetirado = false;
-        foreach ($quantidades as $id => $qtd) {
-            $qtd = (int)$qtd;
-            if ($qtd > 0 && in_array($id, $ids)) {
-                $reagenteController->atualizarQuantidade($id, $qtd, 'remover', $motivo);
-                $algumRetirado = true;
-            }
-        }
-        
-        $msg = $algumRetirado ? 'Itens retirados com sucesso' : 'Nenhuma quantidade foi alterada';
-        header('Location: index.php?msg=' . urlencode($msg));
+    if (!empty($falhas)) {
+        $resumo = $retirados > 0 ? "{$retirados} item(ns) retirado(s). Falhas — " : 'Nenhum item retirado. ';
+        header('Location: index.php?error=' . urlencode($resumo . implode(' | ', array_slice($falhas, 0, 5))));
         exit();
     }
+
+    $msg = $retirados > 0
+        ? "{$retirados} item(ns) retirado(s) com sucesso"
+        : 'Nenhuma quantidade foi informada';
+    header('Location: index.php?msg=' . urlencode($msg));
+    exit();
 }
 
 header('Location: index.php');
 exit();
-?>

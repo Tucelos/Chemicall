@@ -1,5 +1,14 @@
 <?php
-require_once 'src/db/db_connection.php';
+/**
+ * Popula a tabela de reagentes com dados de exemplo.
+ * Uso: php database/seed_reagents.php
+ */
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit('Este script só pode ser executado pela linha de comando.');
+}
+
+require_once __DIR__ . '/../src/db/db_connection.php';
 
 // Mock session for logging if needed, or just insert manually
 // Assuming admin user id is 1. Check if user 1 exists.

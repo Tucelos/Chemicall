@@ -3,10 +3,7 @@ require_once __DIR__ . '/../../controllers/AuthController.php';
 require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated() || (!$auth->isAdmin() && !$auth->isGestor())) {
-    header('Location: ../dashboard/index.php');
-    exit();
-}
+$auth->exigirGestao('../dashboard/index.php');
 
 // Get period from GET request
 $periodo = $_GET['periodo'] ?? '30';
@@ -32,6 +29,9 @@ try {
         $dataMore[] = [$row['nome'], (float)$row['total_consumido']];
     }
 } catch (PDOException $e) {
+    // Sem registrar, uma falha do banco fica indistinguível de
+    // "nenhum consumo no período" na tela.
+    error_log('[Chemicall] Falha ao consultar reagentes mais consumidos: ' . $e->getMessage());
     $dataMore = [];
 }
 
@@ -50,6 +50,7 @@ try {
         $dataLess[] = [$row['nome'], (float)$row['total_consumido']];
     }
 } catch (PDOException $e) {
+    error_log('[Chemicall] Falha ao consultar reagentes menos consumidos: ' . $e->getMessage());
     $dataLess = [];
 }
 
@@ -63,6 +64,7 @@ try {
         $dataControlados[] = [$label, (int)$row['total']];
     }
 } catch (PDOException $e) {
+    error_log('[Chemicall] Falha ao consultar proporção de controlados: ' . $e->getMessage());
     $dataControlados = [];
 }
 
@@ -81,6 +83,7 @@ try {
         $dataMotivos[] = [ucfirst($motivo), (int)$row['total']];
     }
 } catch (PDOException $e) {
+    error_log('[Chemicall] Falha ao consultar motivos das retiradas: ' . $e->getMessage());
     $dataMotivos = [];
 }
 ?>
@@ -93,10 +96,10 @@ try {
     <title>Estatísticas - Chemicall</title>
     
     <!-- Bootstrap -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" referrerpolicy="no-referrer">
     
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
     
     <style>
         body {
@@ -215,7 +218,7 @@ try {
     </div>
 
     <!-- Bootstrap -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     
     <!-- Google Charts -->
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>

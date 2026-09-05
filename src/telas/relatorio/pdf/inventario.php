@@ -4,10 +4,7 @@ require_once __DIR__ . '/../../../db/db_connection.php';
 require_once 'dompdf/autoload.inc.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated() || (!$auth->isAdmin() && !$auth->isGestor())) {
-    header('Location: ../../dashboard/index.php');
-    exit();
-}
+$auth->exigirGestao('../../dashboard/index.php');
 
 use Dompdf\Dompdf;
 
@@ -89,7 +86,8 @@ try {
     $stmtStock->execute($paramsStock);
     $reagentes = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    die("Erro ao buscar estoque: " . $e->getMessage());
+    // A mensagem do PDO traz nomes de tabela e coluna: só vai para o log.
+    chemicall_fail('Falha ao buscar estoque para o relatório: ' . $e->getMessage());
 }
 
 // 2. Fetch Movements Log based on Period, Filters and Bounds
@@ -172,7 +170,7 @@ try {
     $stmtLog->execute($paramsLog);
     $movimentacoes = $stmtLog->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    die("Erro ao buscar movimentações: " . $e->getMessage());
+    chemicall_fail('Falha ao buscar movimentações para o relatório: ' . $e->getMessage());
 }
 
 // 3. Montar Texto Dinâmico de Filtros Ativos

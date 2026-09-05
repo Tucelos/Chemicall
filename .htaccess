@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# Chemicall — proteções no nível do servidor web (Apache)
+# ---------------------------------------------------------------------------
+
+# 1. Arquivos que nunca devem ser servidos pela web.
+<FilesMatch "^(\.env|\.env\..*|\.gitignore|\.htaccess|composer\.(json|lock)|.*\.md|.*\.sql|.*\.log)$">
+    Require all denied
+</FilesMatch>
+
+# 2. Sem listagem de diretórios e sem assinatura do servidor nas páginas de erro.
+#    Sem isto, um 404 do Apache exibe "Apache/2.4.58 (Win64) OpenSSL/3.1.3 PHP/8.2.12".
+Options -Indexes
+ServerSignature Off
+
+# 3. Cabeçalhos de segurança.
+#    As páginas da aplicação e as de erro passam pelo PHP, que já envia o
+#    conjunto completo (src/config/bootstrap.php). Repetir os cabeçalhos aqui
+#    os duplicaria — e duas políticas CSP na mesma resposta são aplicadas pelo
+#    navegador como interseção, o que anularia a política real.
+#    Portanto só os arquivos estáticos, servidos direto pelo Apache, recebem
+#    cabeçalhos aqui.
+<IfModule mod_headers.c>
+    Header always unset X-Powered-By
+    Header unset X-Powered-By
+
+    <FilesMatch "\.(css|js|map|png|jpe?g|gif|svg|ico|woff2?|ttf|eot)$">
+        Header always setifempty X-Content-Type-Options "nosniff"
+        Header always setifempty Referrer-Policy "strict-origin-when-cross-origin"
+    </FilesMatch>
+
+    # Descomente ao publicar sob HTTPS.
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+# 4. Regras de reescrita, na ordem em que devem ser avaliadas.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 4.1 Redirecionamento para HTTPS — precisa vir primeiro, antes de qualquer
+    #     regra com [L], senão parte das requisições nunca chega até aqui.
+    #     Comente este bloco em desenvolvimento local sem certificado.
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP_HOST} !^localhost [NC]
+    RewriteCond %{HTTP_HOST} !^127\.0\.0\.1 [NC]
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+    # 4.2 Endereço inexistente: página de erro da própria aplicação.
+    #     O destino é RELATIVO, então funciona qualquer que seja o nome da
+    #     pasta ou o sistema operacional, sem nada para ajustar.
+    #     Os demais status (403 em .env, 500 do PHP) continuam usando as páginas
+    #     do Apache que, graças ao `ServerSignature Off` acima, já não expõem a
+    #     versão do servidor.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ src/telas/erro.php [L]
+</IfModule>
+
+# 5. Página inicial: tratada pelo index.php da raiz, que redireciona para o
+#    login preservando o caminho base da instalação.
+DirectoryIndex index.php
