@@ -275,11 +275,3 @@ checklist de **[SECURITY.md](SECURITY.md)**.
 
 ---
 
-## 📄 Licença
-
-Distribuído sob a **GNU General Public License v3.0** — veja [LICENSE](LICENSE).
-
-> ⚠️ O arquivo [NOTICE](NOTICE) ainda menciona a Apache License 2.0, herdado de
-> uma versão anterior do projeto. As duas licenças são incompatíveis entre si;
-> o `NOTICE` precisa ser corrigido ou removido para que a licença do projeto
-> fique inequívoca.
