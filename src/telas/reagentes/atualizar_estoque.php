@@ -1,46 +1,43 @@
 <?php
 require_once __DIR__ . '/../../controllers/AuthController.php';
 require_once __DIR__ . '/../../controllers/ReagenteController.php';
-require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated()) {
-    header('Location: ../login/index.php');
+$auth->exigirLogin('../login/index.php');
+
+exigir_post();
+csrf_exigir();
+
+$id        = $_POST['id'] ?? null;
+$quantidade = $_POST['quantidade'] ?? 0;
+$operacao  = $_POST['operacao'] ?? '';
+
+// Entrada de estoque é ato de gestão: restrita a administrador e gestor.
+if ($operacao === 'adicionar' && !$auth->podeGerenciarEstoque()) {
+    header('Location: index.php?error=' . urlencode('Você não tem permissão para adicionar estoque.'));
     exit();
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $id = $_POST['id'] ?? null;
-    $quantidade = $_POST['quantidade'] ?? 0;
-    $operacao = $_POST['operacao'] ?? '';
-
-    // Usuários comuns (não admin) não podem adicionar estoque
-    if ($operacao === 'adicionar' && !$auth->isAdmin()) {
-        header('Location: index.php?error=Acesso negado para adicionar estoque');
-        exit();
-    }
-
-    if ($id && $quantidade > 0 && in_array($operacao, ['adicionar', 'remover'])) {
-        $reagenteController = new ReagenteController($conn);
-        
-        $motivo = null;
-        if ($operacao === 'remover') {
-            $motivo_tipo = $_POST['motivo_tipo'] ?? '';
-            if ($motivo_tipo === 'outro') {
-                $motivo = $_POST['motivo_outro'] ?? 'Outro motivo';
-            } else {
-                $motivo = $motivo_tipo === 'vencimento' ? 'Vencimento do produto' : 'Uso em aula/pesquisa';
-            }
-        }
-
-        if ($reagenteController->atualizarQuantidade($id, $quantidade, $operacao, $motivo)) {
-            $msg = $operacao === 'adicionar' ? 'Estoque adicionado com sucesso!' : 'Item retirado do estoque com sucesso!';
-            header('Location: index.php?msg=' . urlencode($msg));
-            exit();
-        }
+$motivo = null;
+if ($operacao === 'remover') {
+    $motivoTipo = $_POST['motivo_tipo'] ?? '';
+    if ($motivoTipo === 'outro') {
+        $motivo = trim((string) ($_POST['motivo_outro'] ?? ''));
+        $motivo = $motivo === '' ? 'Outro motivo' : mb_substr($motivo, 0, 255);
+    } else {
+        $motivo = $motivoTipo === 'vencimento' ? 'Vencimento do produto' : 'Uso em aula/pesquisa';
     }
 }
 
-header('Location: index.php?error=Erro ao atualizar estoque');
+$reagenteController = new ReagenteController($conn);
+$resultado = $reagenteController->atualizarQuantidade($id, $quantidade, $operacao, $motivo);
+
+if ($resultado['success']) {
+    $msg = $operacao === 'adicionar'
+        ? 'Estoque adicionado com sucesso!'
+        : 'Item retirado do estoque com sucesso!';
+    header('Location: index.php?msg=' . urlencode($msg));
+} else {
+    header('Location: index.php?error=' . urlencode($resultado['message']));
+}
 exit();
-?>

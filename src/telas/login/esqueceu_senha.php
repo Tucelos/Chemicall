@@ -3,68 +3,90 @@
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-require 'PHPMailer/src/Exception.php';
-require 'PHPMailer/src/PHPMailer.php';
-require 'PHPMailer/src/SMTP.php';
+// Caminhos absolutos: um include relativo depende do diretório de trabalho do
+// processo, que varia entre Apache (mod_php) e PHP-FPM.
+require_once __DIR__ . '/PHPMailer/src/Exception.php';
+require_once __DIR__ . '/PHPMailer/src/PHPMailer.php';
+require_once __DIR__ . '/PHPMailer/src/SMTP.php';
 
 require_once __DIR__ . '/../../db/db_connection.php';
+require_once __DIR__ . '/../../config/mailer.php';
 
-// Variáveis de controle para exibir a mensagem de sucesso ou erro
+// Validade do link de redefinição, em minutos.
+const RESET_TOKEN_MINUTOS = 30;
+
+// Resposta única, independentemente do e-mail existir: evita que a tela sirva
+// para descobrir quais endereços estão cadastrados.
+const MSG_RESET_GENERICA =
+    'Se este e-mail estiver cadastrado, enviamos um link de redefinição. '
+    . 'O link vale por ' . RESET_TOKEN_MINUTOS . ' minutos.';
+
 $mensagem = '';
 
-if (isset($_POST['email'])) {
-    $email = $_POST['email'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_exigir();
 
-    // Verifica se o e-mail não está vazio
-    if (empty($email)) {
-        $mensagem = "O campo de e-mail está vazio.";
+    $email = trim((string) ($_POST['email'] ?? ''));
+
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $mensagem = 'Informe um e-mail válido.';
     } else {
-        // Consulta para verificar se o e-mail existe no banco de dados (usando PDO e Prepared Statements)
-        $stmt = $conn->prepare("SELECT * FROM funcionario WHERE email = :email");
+        $stmt = $conn->prepare(
+            "SELECT cod_funcionario FROM funcionario WHERE email = :email AND status = 'ativo'"
+        );
         $stmt->execute([':email' => $email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
+        // A mensagem exibida é sempre a mesma; só o envio de fato é condicional.
+        $mensagem = MSG_RESET_GENERICA;
+
         if ($user) {
-            // Gera um token seguro para a redefinição de senha
+            // Tokens anteriores do mesmo e-mail deixam de valer.
+            $conn->prepare('DELETE FROM esqueceu_senha WHERE email = :email')
+                 ->execute([':email' => $email]);
+
             $token = bin2hex(random_bytes(32)); // Gera um token de 64 caracteres
             $hashedToken = hash('sha256', $token);
 
-            // Insere o token no banco de dados (usando PDO e Prepared Statements)
-            $insert_stmt = $conn->prepare("INSERT INTO esqueceu_senha (email, token) VALUES (:email, :token)");
-            $res = $insert_stmt->execute([':email' => $email, ':token' => $hashedToken]);
+            $insert_stmt = $conn->prepare(
+                'INSERT INTO esqueceu_senha (email, token, expira_em)
+                 VALUES (:email, :token, DATE_ADD(NOW(), INTERVAL :minutos MINUTE))'
+            );
+            $insert_stmt->bindValue(':email', $email);
+            $insert_stmt->bindValue(':token', $hashedToken);
+            $insert_stmt->bindValue(':minutos', RESET_TOKEN_MINUTOS, PDO::PARAM_INT);
+            $res = $insert_stmt->execute();
 
             if ($res) {
-                // Build reset link dynamically
-                $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
-                $host = $_SERVER['HTTP_HOST'];
-                $uri = $_SERVER['REQUEST_URI'];
-                $pos = strpos($uri, 'src/telas/login/');
-                $baseDir = ($pos !== false) ? substr($uri, 0, $pos) : '/';
-                $resetLink = $protocol . "://" . $host . $baseDir . "src/telas/login/reset.php?token=" . $token;
+                // A base do link vem da configuração, nunca do cabeçalho Host:
+                // caso contrário um atacante poderia forjar o Host e receber o
+                // token da vítima em seu próprio domínio.
+                $appUrl = rtrim((string) env('APP_URL', ''), '/');
+
+                if ($appUrl === '') {
+                    $protocol = (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') ? 'https' : 'http';
+                    $uri = $_SERVER['REQUEST_URI'] ?? '/';
+                    $pos = strpos($uri, 'src/telas/login/');
+                    $baseDir = ($pos !== false) ? substr($uri, 0, $pos) : '/';
+                    $appUrl = $protocol . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim($baseDir, '/');
+                    error_log('[Chemicall] APP_URL não configurada: link de redefinição montado a partir do Host da requisição.');
+                }
+
+                $resetLink = $appUrl . '/src/telas/login/reset.php?token=' . urlencode($token);
 
                 // Criando instância do PHPMailer
                 $mail = new PHPMailer(true);
 
                 try {
-                    // Configuração do servidor SMTP
-                    $mail->isSMTP();  // Define que estamos usando SMTP
-                    $mail->Host = $_ENV['SMTP_HOST'] ?? '';
-                    $mail->SMTPAuth = true;  // Ativa autenticação SMTP
-                    $mail->Username = $_ENV['SMTP_USER'] ?? '';
-                    $mail->Password = $_ENV['SMTP_PASS'] ?? '';
-                    
-                    $smtpSecure = strtolower($_ENV['SMTP_SECURE'] ?? 'ssl');
-                    if ($smtpSecure === 'tls') {
-                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                    } else {
-                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+                    if (!smtp_configurado()) {
+                        throw new Exception('SMTP não configurado no .env (SMTP_HOST/SMTP_USER ausentes).');
                     }
-                    $mail->Port = (int)($_ENV['SMTP_PORT'] ?? 465);
 
-                    // Remetente
-                    $mail->setFrom($_ENV['SMTP_FROM_EMAIL'] ?? 'no-reply@chemicall.com', $_ENV['SMTP_FROM_NAME'] ?? 'Redefinição de Senha');
+                    // Servidor, porta, criptografia, certificado e remetente vêm
+                    // todos do .env (src/config/mailer.php).
+                    configurar_smtp($mail);
+
                     $mail->addAddress($email);  // E-mail do destinatário
-                    $mail->addReplyTo($_ENV['SMTP_FROM_EMAIL'] ?? 'no-reply@chemicall.com', $_ENV['SMTP_FROM_NAME'] ?? 'Redefinição de Senha');
                     $mail->Subject = 'Redefinir Senha';
 
                     // Conteúdo do e-mail
@@ -145,26 +167,19 @@ if (isset($_POST['email'])) {
 </html>
 ";
 
-                    $mail->SMTPOptions = [
-                        'ssl' => [
-                            'verify_peer' => true,
-                            'verify_peer_name' => true,
-                            'allow_self_signed' => false,
-                            'cafile' => 'C:/xampp/apache/bin/cacert.pem',
-                        ]
-                    ];
-
                     // Envia o e-mail
                     $mail->send();
-                    $mensagem = 'Link de redefinição de senha enviado para seu e-mail.';
                 } catch (Exception $e) {
-                    $mensagem = "Erro ao enviar o e-mail. Mailer Error: {$mail->ErrorInfo}";
+                    // O detalhe do SMTP fica no log; o usuário vê a mensagem
+                    // genérica, que também não revela se o e-mail existe.
+                    // ErrorInfo fica vazio quando a falha é anterior ao envio
+                    // (SMTP ausente no .env), por isso as duas informações.
+                    error_log('[Chemicall] Falha no envio do e-mail de redefinição: '
+                        . $e->getMessage() . ($mail->ErrorInfo ? ' | ' . $mail->ErrorInfo : ''));
                 }
             } else {
-                $mensagem = "Erro ao gerar o token. Tente novamente.";
+                error_log('[Chemicall] Falha ao gravar token de redefinição para ' . $email);
             }
-        } else {
-            $mensagem = "Usuário não encontrado.";
         }
     }
 }
@@ -178,9 +193,9 @@ if (isset($_POST['email'])) {
     <title>Redefinir Senha</title>
     <link rel="stylesheet" href="../../styles/reset.css">
     <script>
-        // Função para mostrar o alerta com a mensagem do PHP
+        // json_encode escapa a mensagem para o contexto JavaScript.
         window.onload = function () {
-            var mensagem = '<?php echo $mensagem; ?>';
+            var mensagem = <?php echo json_encode($mensagem, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
             if (mensagem) {
                 alert(mensagem);
             }
@@ -203,6 +218,7 @@ if (isset($_POST['email'])) {
             </div>
         </center>
         <form id="esqueceuSenha" method="POST">
+            <?php echo csrf_field(); ?>
             <h4 style="padding-bottom: 10px; text-align: center; ">Redefinir Senha</h4>
             <p style="padding-bottom: 20px; justify-content: space-between;"> Insira o e-mail associado à sua conta para
                 redefinir sua senha. Você

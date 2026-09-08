@@ -4,14 +4,12 @@ require_once __DIR__ . '/../../controllers/ReagenteController.php';
 require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated() || (!$auth->isAdmin() && !$auth->isGestor())) {
-    header('Location: index.php');
-    exit();
-}
+$auth->exigirGestao('index.php');
 
 $controller = new ReagenteController($conn);
-$id = $_GET['id'] ?? null;
+$id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT) ?: null;
 $reagente = [];
+$erro = '';
 
 if ($id) {
     $reagente = $controller->buscarPorId($id);
@@ -19,34 +17,62 @@ if ($id) {
         header('Location: index.php');
         exit();
     }
+    // Um reagente controlado só pode ser editado por quem tem essa permissão.
+    if ((int) $reagente['controlado'] === 1 && !$controller->podeAcessarControlados()) {
+        header('Location: index.php?error=' . urlencode('Você não tem permissão para editar produtos controlados.'));
+        exit();
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_exigir();
+
+    // Só valores previstos pelo formulário são aceitos nos campos de domínio fechado.
+    $unidadesValidas   = ['frasco', 'galão', 'litro', 'ml', 'kg', 'g', 'mg'];
+    $capacidadesValidas = ['ml', 'g'];
+
+    $unidadeMedida     = $_POST['unidade_medida'] ?? 'frasco';
+    $unidadeCapacidade = $_POST['unidade_capacidade'] ?? 'ml';
+
     $dados = [
-        'nome' => $_POST['nome'],
-        'formula_quimica' => $_POST['formula_quimica'],
-        'massa_molar' => $_POST['massa_molar'],
-        'concentracao' => $_POST['concentracao'],
-        'densidade' => $_POST['densidade'],
-        'validade' => $_POST['validade'],
-        'fabricante' => $_POST['fabricante'],
-        'numero_cas' => $_POST['numero_cas'],
-        'numero_ncm' => $_POST['numero_ncm'],
-        'numero_nota_fiscal' => $_POST['numero_nota_fiscal'],
-        'quantidade' => $_POST['quantidade'],
-        'unidade_medida' => $_POST['unidade_medida'] ?? 'frasco',
-        'capacidade_medida' => !empty($_POST['capacidade_medida']) ? $_POST['capacidade_medida'] : null,
-        'unidade_capacidade' => $_POST['unidade_capacidade'] ?? 'ml',
-        'controlado' => isset($_POST['controlado']) ? 1 : 0
+        'nome'               => trim((string) ($_POST['nome'] ?? '')),
+        'formula_quimica'    => trim((string) ($_POST['formula_quimica'] ?? '')),
+        'massa_molar'        => $_POST['massa_molar'] !== '' ? $_POST['massa_molar'] : null,
+        'concentracao'       => trim((string) ($_POST['concentracao'] ?? '')),
+        'densidade'          => $_POST['densidade'] !== '' ? $_POST['densidade'] : null,
+        'validade'           => $_POST['validade'] ?? '',
+        'fabricante'         => trim((string) ($_POST['fabricante'] ?? '')),
+        'numero_cas'         => trim((string) ($_POST['numero_cas'] ?? '')),
+        'numero_ncm'         => trim((string) ($_POST['numero_ncm'] ?? '')),
+        'numero_nota_fiscal' => trim((string) ($_POST['numero_nota_fiscal'] ?? '')),
+        'quantidade'         => $_POST['quantidade'] ?? 0,
+        'unidade_medida'     => in_array($unidadeMedida, $unidadesValidas, true) ? $unidadeMedida : 'frasco',
+        'capacidade_medida'  => !empty($_POST['capacidade_medida']) ? $_POST['capacidade_medida'] : null,
+        'unidade_capacidade' => in_array($unidadeCapacidade, $capacidadesValidas, true) ? $unidadeCapacidade : 'ml',
+        'controlado'         => isset($_POST['controlado']) ? 1 : 0,
     ];
 
-    if ($id) {
-        $controller->atualizar($id, $dados);
+    // Marcar um item como controlado exige a permissão correspondente.
+    if ($dados['controlado'] === 1 && !$controller->podeAcessarControlados()) {
+        $erro = 'Você não tem permissão para cadastrar produtos controlados.';
+    } elseif ($dados['nome'] === '') {
+        $erro = 'O nome do reagente é obrigatório.';
+    } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $dados['validade'])) {
+        $erro = 'Informe uma data de validade válida.';
+    } elseif (filter_var($dados['quantidade'], FILTER_VALIDATE_INT) === false || (int) $dados['quantidade'] < 0) {
+        $erro = 'A quantidade deve ser um número inteiro maior ou igual a zero.';
     } else {
-        $controller->criar($dados);
+        $ok = $id ? $controller->atualizar($id, $dados) : $controller->criar($dados);
+        if ($ok) {
+            $msg = $id ? 'Reagente atualizado com sucesso!' : 'Reagente cadastrado com sucesso!';
+            header('Location: index.php?msg=' . urlencode($msg));
+            exit();
+        }
+        $erro = 'Não foi possível salvar o reagente. Verifique os dados e tente novamente.';
     }
-    header('Location: index.php');
-    exit();
+
+    // Mantém o que o usuário digitou ao reexibir o formulário com erro.
+    $reagente = array_merge($reagente ?: [], $dados);
 }
 ?>
 
@@ -56,8 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $id ? 'Editar' : 'Novo'; ?> Reagente - Chemicall</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
     <?php include '../../componentes/header.php'; ?>
@@ -68,7 +94,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <h3 class="mb-0"><?php echo $id ? 'Editar' : 'Novo'; ?> Reagente</h3>
             </div>
             <div class="card-body">
+                <?php if ($erro): ?>
+                    <div class="alert alert-danger"><?php echo e($erro); ?></div>
+                <?php endif; ?>
                 <form method="POST">
+                    <?php echo csrf_field(); ?>
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label d-flex align-items-center justify-content-between">
@@ -78,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </button>
                             </label>
                             <div class="input-group">
-                                <input type="text" name="nome" id="nome_reagente" class="form-control" required value="<?php echo $reagente['nome'] ?? ''; ?>">
+                                <input type="text" name="nome" id="nome_reagente" class="form-control" required value="<?php echo e($reagente['nome'] ?? ''); ?>">
                                 <button class="btn btn-outline-success" type="button" id="btn_buscar_pubchem" title="Buscar dados no PubChem">
                                     <i class="fas fa-magic"></i> Auto-completar
                                 </button>
@@ -87,45 +117,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                         <div class="col-md-3 mb-3">
                             <label class="form-label">Fórmula Química</label>
-                            <input type="text" name="formula_quimica" id="formula_quimica" class="form-control" value="<?php echo $reagente['formula_quimica'] ?? ''; ?>">
+                            <input type="text" name="formula_quimica" id="formula_quimica" class="form-control" value="<?php echo e($reagente['formula_quimica'] ?? ''); ?>">
                         </div>
                         <div class="col-md-3 mb-3">
                             <label class="form-label">Número CAS</label>
-                            <input type="text" name="numero_cas" id="numero_cas" class="form-control" value="<?php echo $reagente['numero_cas'] ?? ''; ?>">
+                            <input type="text" name="numero_cas" id="numero_cas" class="form-control" value="<?php echo e($reagente['numero_cas'] ?? ''); ?>">
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-3 mb-3">
                             <label class="form-label">Massa Molar (g/mol)</label>
-                            <input type="number" step="0.01" name="massa_molar" id="massa_molar" class="form-control" value="<?php echo $reagente['massa_molar'] ?? ''; ?>">
+                            <input type="number" step="0.01" name="massa_molar" id="massa_molar" class="form-control" value="<?php echo e($reagente['massa_molar'] ?? ''); ?>">
                         </div>
                         <div class="col-md-3 mb-3">
                             <label class="form-label">Concentração</label>
-                            <input type="text" name="concentracao" class="form-control" value="<?php echo $reagente['concentracao'] ?? ''; ?>">
+                            <input type="text" name="concentracao" class="form-control" value="<?php echo e($reagente['concentracao'] ?? ''); ?>">
                         </div>
                         <div class="col-md-3 mb-3">
                             <label class="form-label">Densidade (g/cm³)</label>
-                            <input type="number" step="0.001" name="densidade" class="form-control" value="<?php echo $reagente['densidade'] ?? ''; ?>">
+                            <input type="number" step="0.001" name="densidade" class="form-control" value="<?php echo e($reagente['densidade'] ?? ''); ?>">
                         </div>
                         <div class="col-md-3 mb-3">
                             <label class="form-label">Validade *</label>
-                            <input type="date" name="validade" class="form-control" required value="<?php echo $reagente['validade'] ?? ''; ?>">
+                            <input type="date" name="validade" class="form-control" required value="<?php echo e($reagente['validade'] ?? ''); ?>">
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Fabricante</label>
-                            <input type="text" name="fabricante" class="form-control" value="<?php echo $reagente['fabricante'] ?? ''; ?>">
+                            <input type="text" name="fabricante" class="form-control" value="<?php echo e($reagente['fabricante'] ?? ''); ?>">
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label">NCM</label>
-                            <input type="text" name="numero_ncm" class="form-control" value="<?php echo $reagente['numero_ncm'] ?? ''; ?>">
+                            <input type="text" name="numero_ncm" class="form-control" value="<?php echo e($reagente['numero_ncm'] ?? ''); ?>">
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Nota Fiscal</label>
-                            <input type="text" name="numero_nota_fiscal" class="form-control" value="<?php echo $reagente['numero_nota_fiscal'] ?? ''; ?>">
+                            <input type="text" name="numero_nota_fiscal" class="form-control" value="<?php echo e($reagente['numero_nota_fiscal'] ?? ''); ?>">
                         </div>
                     </div>
 
@@ -163,12 +193,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label" id="label_quantidade">Quantidade *</label>
-                            <input type="number" name="quantidade" class="form-control" required value="<?php echo $reagente['quantidade'] ?? '0'; ?>">
+                            <input type="number" name="quantidade" class="form-control" required value="<?php echo e($reagente['quantidade'] ?? '0'); ?>">
                         </div>
                         <div class="col-md-4 mb-3" id="container_capacidade">
                             <label class="form-label">Capacidade por Unidade *</label>
                             <div class="input-group">
-                                <input type="number" step="0.01" name="capacidade_medida" id="capacidade_medida" class="form-control" value="<?php echo $reagente['capacidade_medida'] ?? ''; ?>">
+                                <input type="number" step="0.01" name="capacidade_medida" id="capacidade_medida" class="form-control" value="<?php echo e($reagente['capacidade_medida'] ?? ''); ?>">
                                 <select name="unidade_capacidade" id="unidade_capacidade" class="form-select" style="max-width: 90px;">
                                     <?php 
                                     $uni_caps = ['ml' => 'mL', 'g' => 'g'];
@@ -220,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
     document.getElementById('btn_buscar_pubchem').addEventListener('click', function() {
         const termoBusca = document.getElementById('nome_reagente').value.trim();

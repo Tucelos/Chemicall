@@ -4,20 +4,14 @@ require_once __DIR__ . '/../../controllers/FuncionarioController.php';
 require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated()) {
-    header('Location: ../login/index.php');
-    exit();
-}
-
-if (!$auth->isAdmin()) {
-    header('Location: ../dashboard/index.php');
-    exit();
-}
+$auth->exigirAdmin('../dashboard/index.php');
 
 $msg = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_exigir();
+
     $funcionarioController = new FuncionarioController($conn);
     $tipo = $_POST['tipo'] ?? 'user';
     $dados = [
@@ -28,18 +22,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'cargo' => $_POST['cargo'] ?? null,
         'senha' => $_POST['senha'] ?? '',
         'tipo' => $tipo,
+        'status' => 'ativo',
         'acesso_controlados' => (($tipo === 'admin' || $tipo === 'gestor') || isset($_POST['acesso_controlados'])) ? 1 : 0
     ];
 
-    if (strlen($_POST['senha'] ?? '') < 8) {
-        $error = 'A senha deve ter no mínimo 8 caracteres.';
+    // A validação de senha e e-mail fica no controller, ponto único de regra.
+    $resultado = $funcionarioController->criar($dados);
+    if ($resultado['success']) {
+        $msg = $resultado['message'];
     } else {
-        $resultado = $funcionarioController->criar($dados);
-        if ($resultado['success']) {
-            $msg = $resultado['message'];
-        } else {
-            $error = $resultado['message'];
-        }
+        $error = $resultado['message'];
     }
 }
 ?>
@@ -50,8 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cadastro de Usuários - Chemicall</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
     <?php include '../../componentes/header.php'; ?>
@@ -79,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php endif; ?>
 
                         <form method="POST">
+                            <?php echo csrf_field(); ?>
                             <div class="mb-3">
                                 <label for="nome" class="form-label">Nome Completo</label>
                                 <input type="text" class="form-control" id="nome" name="nome" required>
@@ -138,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const tipoSelect = document.getElementById('tipo');

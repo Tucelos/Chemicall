@@ -1,6 +1,10 @@
 # Configurações de ambiente
 .env
 
+# Logs e arquivos gerados em tempo de execução
+# (o .htaccess de storage/ é versionado de propósito)
+storage/logs/
+
 # Arquivos temporários e de documentação local
 guia_apresentacao_tcc.md
 analysis_results.md
@@ -8,6 +12,7 @@ analysis_results.md
 # Configurações de IDEs e Editores
 .idea/
 .vscode/
+.claude/
 *.suo
 *.ntvs*
 *.njsproj

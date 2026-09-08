@@ -4,13 +4,10 @@ require_once __DIR__ . '/../../controllers/ReagenteController.php';
 require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated()) {
-    header('Location: ../login/index.php');
-    exit();
-}
+$auth->exigirLogin('../login/index.php');
 
 $reagenteController = new ReagenteController($conn);
-$busca = $_GET['busca'] ?? '';
+$busca = trim((string) ($_GET['busca'] ?? ''));
 $apenasControlados = isset($_GET['controlado']) && $_GET['controlado'] == '1';
 $reagentes = $reagenteController->listar($busca, $apenasControlados, true); // Apenas utilizados (quantidade = 0)
 $isAdmin = $auth->isAdmin();
@@ -44,8 +41,8 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Itens Utilizados - Chemicall</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
     <?php include '../../componentes/header.php'; ?>
@@ -112,6 +109,7 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
         <?php endif; ?>
 
         <form id="bulkForm" action="acoes_lote.php" method="POST">
+            <?php echo csrf_field(); ?>
             <input type="hidden" name="acao" id="bulkAcao" value="">
             
             <div class="table-responsive">
@@ -161,7 +159,7 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                                         <div class="btn-group" role="group">
                                              <?php if ($isAdmin || $isGestor): ?>
                                              <a href="form.php?id=<?php echo $r['id']; ?>" class="btn btn-sm btn-primary" title="Editar"><i class="fas fa-edit"></i></a>
-                                             <a href="delete.php?id=<?php echo $r['id']; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja excluir este item?');" title="Excluir"><i class="fas fa-trash"></i></a>
+                                             <button type="button" class="btn btn-sm btn-danger btn-excluir" data-id="<?php echo $r['id']; ?>" data-nome="<?php echo e($r['nome']); ?>" title="Excluir"><i class="fas fa-trash"></i></button>
                                              <?php endif; ?>
                                         </div>
 
@@ -385,11 +383,29 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                 </div>
             </div>
         </form>
+
+        <!-- Exclusão individual: POST com token CSRF, fora do bulkForm -->
+        <form id="deleteForm" action="delete.php" method="POST" class="d-none">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="id" id="deleteId" value="">
+        </form>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Exclusão individual via POST (o botão dispara o formulário com token CSRF)
+        document.querySelectorAll('.btn-excluir').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const nome = this.getAttribute('data-nome');
+                if (!confirm('Tem certeza que deseja excluir "' + nome + '"?')) {
+                    return;
+                }
+                document.getElementById('deleteId').value = this.getAttribute('data-id');
+                document.getElementById('deleteForm').submit();
+            });
+        });
+
         // Clique na linha para abrir os Detalhes (ignora se clicar em checkbox ou botões)
         const clickableRows = document.querySelectorAll('.clickable-row');
         clickableRows.forEach(row => {

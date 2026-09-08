@@ -4,22 +4,26 @@ require_once __DIR__ . '/../../controllers/FuncionarioController.php';
 require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated() || !$auth->isAdmin()) {
-    header('Location: ../dashboard/index.php');
-    exit();
-}
+$auth->exigirAdmin('../dashboard/index.php');
 
 $controller = new FuncionarioController($conn);
-$usuarios = $controller->listar();
+$error = '';
 
 if (isset($_POST['delete_id'])) {
-    if ($controller->deletar($_POST['delete_id'])) {
-        header('Location: index.php?msg=Usuário excluído com sucesso');
+    csrf_exigir();
+
+    $deleteId = filter_var($_POST['delete_id'], FILTER_VALIDATE_INT);
+    $resultado = $controller->deletar($deleteId, (int) $_SESSION['user_id']);
+
+    if ($resultado['success']) {
+        header('Location: index.php?msg=' . urlencode($resultado['message']));
         exit();
-    } else {
-        $error = "Erro ao excluir usuário.";
     }
+    $error = $resultado['message'];
 }
+
+// A listagem é carregada depois da exclusão para refletir o estado atual.
+$usuarios = $controller->listar();
 ?>
 
 <!DOCTYPE html>
@@ -28,8 +32,8 @@ if (isset($_POST['delete_id'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerenciar Usuários - Chemicall</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
     <?php include '../../componentes/header.php'; ?>
@@ -42,7 +46,14 @@ if (isset($_POST['delete_id'])) {
 
         <?php if (isset($_GET['msg'])): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <?php echo htmlspecialchars($_GET['msg']); ?>
+                <?php echo e($_GET['msg']); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($error): ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <?php echo e($error); ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         <?php endif; ?>
@@ -117,6 +128,7 @@ if (isset($_POST['delete_id'])) {
                                                 <div class="modal-footer">
                                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                                                     <form method="POST" style="display:inline;">
+                                                        <?php echo csrf_field(); ?>
                                                         <input type="hidden" name="delete_id" value="<?php echo $user['cod_funcionario']; ?>">
                                                         <button type="submit" class="btn btn-danger">Excluir</button>
                                                     </form>
@@ -135,6 +147,6 @@ if (isset($_POST['delete_id'])) {
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </body>
 </html>

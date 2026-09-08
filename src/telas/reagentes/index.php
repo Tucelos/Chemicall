@@ -4,17 +4,14 @@ require_once __DIR__ . '/../../controllers/ReagenteController.php';
 require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated()) {
-    header('Location: ../login/index.php');
-    exit();
-}
+$auth->exigirLogin('../login/index.php');
 
 $reagenteController = new ReagenteController($conn);
-$busca = $_GET['busca'] ?? '';
+$busca = trim((string) ($_GET['busca'] ?? ''));
 $apenasControlados = isset($_GET['controlado']) && $_GET['controlado'] == '1';
 $reagentes = $reagenteController->listar($busca, $apenasControlados, false); // Apenas ativos (quantidade > 0)
 $isAdmin = $auth->isAdmin();
-$isGestor = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'gestor';
+$isGestor = $auth->isGestor();
 
 function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeCapacidade = 'ml') {
     if (empty($unidade)) {
@@ -44,8 +41,8 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estoque - Chemicall</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
     <?php include '../../componentes/header.php'; ?>
@@ -115,22 +112,30 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
         </div>
 
         <form id="bulkForm" action="acoes_lote.php" method="POST">
+            <?php echo csrf_field(); ?>
             <input type="hidden" name="acao" id="bulkAcao" value="">
             
             <div class="table-responsive">
                 <table class="table table-striped table-hover align-middle">
                     <thead class="table-dark">
+                        <!--
+                            Ordem das colunas: o que se usa para agir (quantidade,
+                            validade, ações) vem antes das propriedades físicas.
+                            As colunas marcadas com d-none só aparecem a partir de
+                            telas grandes — no celular a tabela mostra apenas o
+                            essencial, em vez de exigir rolagem lateral até as ações.
+                        -->
                         <tr>
                             <th style="width: 40px;"><input type="checkbox" id="selectAll" class="form-check-input"></th>
                             <th>Nome</th>
-                            <th>Densidade</th>
-                            <th>Concentração</th>
-                            <th>Controlado</th>
-                            <th>Validade</th>
-                            <th>Unidade</th>
-                            <th>Capacidade</th>
                             <th>Qtd.</th>
                             <th>Ações</th>
+                            <th>Validade</th>
+                            <th class="d-none d-md-table-cell">Controlado</th>
+                            <th class="d-none d-lg-table-cell">Densidade</th>
+                            <th class="d-none d-lg-table-cell">Concentração</th>
+                            <th class="d-none d-xl-table-cell">Unidade</th>
+                            <th class="d-none d-xl-table-cell">Capacidade</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -140,26 +145,32 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                             </tr>
                         <?php else: ?>
                             <?php foreach ($reagentes as $r): ?>
+                                <?php $val = ReagenteController::situacaoValidade($r['validade']); ?>
+                                <?php $alertaValidade = in_array($val['estado'], ['vencido', 'vence_em_breve'], true); ?>
                                 <tr class="clickable-row" data-reagente-id="<?php echo $r['id']; ?>" style="cursor: pointer;">
                                     <td>
                                         <input type="checkbox" class="form-check-input row-checkbox" name="ids[]" value="<?php echo $r['id']; ?>" data-nome="<?php echo htmlspecialchars($r['nome']); ?>" data-qtd="<?php echo $r['quantidade']; ?>" data-unidade="<?php echo htmlspecialchars($r['unidade_medida']); ?>" data-capacidade="<?php echo $r['capacidade_medida']; ?>" data-unicap="<?php echo htmlspecialchars($r['unidade_capacidade']); ?>">
                                     </td>
-                                    <td><strong><?php echo htmlspecialchars($r['nome']); ?></strong></td>
-                                    <td><?php echo htmlspecialchars($r['densidade'] !== null ? $r['densidade'] . ' g/cm³' : '-'); ?></td>
-                                    <td><?php echo htmlspecialchars($r['concentracao'] ?? '-'); ?></td>
                                     <td>
+                                        <strong><?php echo htmlspecialchars($r['nome']); ?></strong>
                                         <?php if ($r['controlado']): ?>
-                                            <span class="badge bg-danger">Sim</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-secondary">Não</span>
+                                            <span class="badge bg-danger ms-1 d-md-none">Controlado</span>
+                                        <?php endif; ?>
+                                        <?php if ($alertaValidade): ?>
+                                            <!-- Espelha o alerta sob o nome nas telas pequenas, onde a
+                                                 coluna Validade fica fora do campo de visão. -->
+                                            <div class="d-lg-none mt-1">
+                                                <span class="badge bg-<?php echo $val['classe']; ?>-subtle text-<?php echo $val['classe']; ?>-emphasis border border-<?php echo $val['classe']; ?>-subtle">
+                                                    <i class="fas <?php echo $val['icone']; ?>"></i>
+                                                    <?php echo e($val['rotulo']); ?>
+                                                </span>
+                                            </div>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?php echo date('d/m/Y', strtotime($r['validade'])); ?></td>
-                                    <td><?php echo htmlspecialchars($r['unidade_medida']); ?></td>
-                                    <td><?php echo htmlspecialchars($r['capacidade_medida'] !== null && $r['capacidade_medida'] > 0 ? ((float)$r['capacidade_medida']) . ' ' . $r['unidade_capacidade'] : '-'); ?></td>
                                     <td>
                                         <span class="badge bg-dark fs-6"><?php echo (float)$r['quantidade']; ?></span>
                                     </td>
+                                    
                                     <td>
                                         <div class="btn-group" role="group">
                                              <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#modalRemove<?php echo $r['id']; ?>" title="Retirar do Estoque">
@@ -167,10 +178,30 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                                              </button>
                                              <?php if ($isAdmin || $isGestor): ?>
                                              <a href="form.php?id=<?php echo $r['id']; ?>" class="btn btn-sm btn-primary" title="Editar"><i class="fas fa-edit"></i></a>
-                                             <a href="delete.php?id=<?php echo $r['id']; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja excluir este item?');" title="Excluir"><i class="fas fa-trash"></i></a>
+                                             <button type="button" class="btn btn-sm btn-danger btn-excluir" data-id="<?php echo $r['id']; ?>" data-nome="<?php echo htmlspecialchars($r['nome']); ?>" title="Excluir"><i class="fas fa-trash"></i></button>
                                              <?php endif; ?>
                                         </div>
                                     </td>
+                                    <td>
+                                        <div><?php echo date('d/m/Y', strtotime($r['validade'])); ?></div>
+                                        <?php if ($alertaValidade): ?>
+                                            <span class="badge bg-<?php echo $val['classe']; ?>-subtle text-<?php echo $val['classe']; ?>-emphasis border border-<?php echo $val['classe']; ?>-subtle mt-1 d-none d-lg-inline-block">
+                                                <i class="fas <?php echo $val['icone']; ?>"></i>
+                                                <?php echo e($val['rotulo']); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="d-none d-md-table-cell">
+                                        <?php if ($r['controlado']): ?>
+                                            <span class="badge bg-danger">Sim</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-secondary">Não</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="d-none d-lg-table-cell"><?php echo htmlspecialchars($r['densidade'] !== null ? $r['densidade'] . ' g/cm³' : '-'); ?></td>
+                                    <td class="d-none d-lg-table-cell"><?php echo htmlspecialchars($r['concentracao'] ?? '-'); ?></td>
+                                    <td class="d-none d-xl-table-cell"><?php echo htmlspecialchars($r['unidade_medida']); ?></td>
+                                    <td class="d-none d-xl-table-cell"><?php echo htmlspecialchars($r['capacidade_medida'] !== null && $r['capacidade_medida'] > 0 ? ((float)$r['capacidade_medida']) . ' ' . $r['unidade_capacidade'] : '-'); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -244,6 +275,12 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
             </div>
         </form>
 
+        <!-- Exclusão individual: POST com token CSRF, fora do bulkForm -->
+        <form id="deleteForm" action="delete.php" method="POST" class="d-none">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="id" id="deleteId" value="">
+        </form>
+
         <!-- Modais de Ações Individuais (Fora do bulkForm) -->
         <?php if (!empty($reagentes)): ?>
             <?php foreach ($reagentes as $r): ?>
@@ -256,6 +293,7 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <form action="atualizar_estoque.php" method="POST">
+                                <?php echo csrf_field(); ?>
                                 <div class="modal-body text-start">
                                     <input type="hidden" name="id" value="<?php echo $r['id']; ?>">
                                     <input type="hidden" name="operacao" value="remover">
@@ -481,7 +519,7 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
 
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Exibição condicional do motivo personalizado no modal individual
@@ -534,6 +572,18 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                     const myModal = new bootstrap.Modal(detailModalEl);
                     myModal.show();
                 }
+            });
+        });
+
+        // Exclusão individual via POST (o botão dispara o formulário com token CSRF)
+        document.querySelectorAll('.btn-excluir').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const nome = this.getAttribute('data-nome');
+                if (!confirm('Tem certeza que deseja excluir "' + nome + '"?')) {
+                    return;
+                }
+                document.getElementById('deleteId').value = this.getAttribute('data-id');
+                document.getElementById('deleteForm').submit();
             });
         });
 
@@ -593,14 +643,42 @@ function formatarQuantidade($quantidade, $unidade, $capacidade = null, $unidadeC
                         fmtInfo += ' (' + parseFloat(capacidade) + ' ' + uniCap + ')';
                     }
 
-                    const itemHtml = `
-                        <div class="mb-3 border-bottom pb-3">
-                            <label class="form-label fw-bold mb-1">${nome} <span class="text-muted" style="font-size:0.85rem;">(Estoque: ${fmtInfo})</span></label>
-                            <input type="number" name="quantidades[${id}]" class="form-control bulk-qty-input" min="0" max="${maxQtd}" step="any" value="0" required>
-                            <div class="form-text">Quantidade a retirar (máx: ${maxQtd})</div>
-                        </div>
-                    `;
-                    container.insertAdjacentHTML('beforeend', itemHtml);
+                    // Os nós são criados pela API do DOM, com o nome do reagente
+                    // atribuído via textContent. Montar este bloco por template
+                    // literal + insertAdjacentHTML executaria o conteúdo de
+                    // data-nome como HTML: o escape feito pelo PHP no atributo é
+                    // desfeito por getAttribute().
+                    const bloco = document.createElement('div');
+                    bloco.className = 'mb-3 border-bottom pb-3';
+
+                    const rotulo = document.createElement('label');
+                    rotulo.className = 'form-label fw-bold mb-1';
+                    rotulo.htmlFor = 'bulk_qty_' + id;
+                    rotulo.textContent = nome + ' ';
+
+                    const estoque = document.createElement('span');
+                    estoque.className = 'text-muted';
+                    estoque.style.fontSize = '0.85rem';
+                    estoque.textContent = '(Estoque: ' + fmtInfo + ')';
+                    rotulo.appendChild(estoque);
+
+                    const campo = document.createElement('input');
+                    campo.type = 'number';
+                    campo.name = 'quantidades[' + id + ']';
+                    campo.id = 'bulk_qty_' + id;
+                    campo.className = 'form-control bulk-qty-input';
+                    campo.min = '0';
+                    campo.max = maxQtd;
+                    campo.step = 'any';
+                    campo.value = '0';
+                    campo.required = true;
+
+                    const ajuda = document.createElement('div');
+                    ajuda.className = 'form-text';
+                    ajuda.textContent = 'Quantidade a retirar (máx: ' + maxQtd + ')';
+
+                    bloco.append(rotulo, campo, ajuda);
+                    container.appendChild(bloco);
                 });
             });
         }

@@ -4,22 +4,18 @@ require_once __DIR__ . '/../../controllers/FuncionarioController.php';
 require_once __DIR__ . '/../../db/db_connection.php';
 
 $auth = new AuthController($conn);
-if (!$auth->isAuthenticated() || !$auth->isAdmin()) {
-    header('Location: ../dashboard/index.php');
+$auth->exigirAdmin('../dashboard/index.php');
+
+$controller = new FuncionarioController($conn);
+$id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT);
+
+if (!$id) {
+    header('Location: index.php');
     exit();
 }
 
-$controller = new FuncionarioController($conn);
-$id = $_GET['id'] ?? null;
-$usuario = null;
-
-if ($id) {
-    $usuario = $controller->buscarPorId($id);
-    if (!$usuario) {
-        header('Location: index.php');
-        exit();
-    }
-} else {
+$usuario = $controller->buscarPorId($id);
+if (!$usuario) {
     header('Location: index.php');
     exit();
 }
@@ -28,28 +24,29 @@ $msg = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_exigir();
+
     $tipo = $_POST['tipo'] ?? 'user';
     $dados = [
-        'nome' => $_POST['nome'],
+        'nome' => $_POST['nome'] ?? '',
         'matricula' => $_POST['matricula'] ?? null,
-        'email' => $_POST['email'],
+        'email' => $_POST['email'] ?? '',
         'email_secundario' => $_POST['email_secundario'] ?? null,
         'cargo' => $_POST['cargo'] ?? null,
         'tipo' => $tipo,
+        // Sem este campo, o status era redefinido para 'ativo' a cada edição —
+        // o que aprovava silenciosamente cadastros ainda pendentes.
+        'status' => $usuario['status'],
         'acesso_controlados' => (($tipo === 'admin' || $tipo === 'gestor') || isset($_POST['acesso_controlados'])) ? 1 : 0,
-        'senha' => $_POST['senha'] // Optional
+        'senha' => $_POST['senha'] ?? '', // Opcional
     ];
 
-    if (!empty($_POST['senha']) && strlen($_POST['senha']) < 8) {
-        $error = 'A nova senha deve ter no mínimo 8 caracteres.';
+    $resultado = $controller->atualizar($id, $dados);
+    if ($resultado['success']) {
+        $msg = $resultado['message'];
+        $usuario = $controller->buscarPorId($id); // Recarrega os dados exibidos
     } else {
-        if ($controller->atualizar($id, $dados)) {
-            $msg = 'Usuário atualizado com sucesso!';
-            // Refresh data
-            $usuario = $controller->buscarPorId($id);
-        } else {
-            $error = 'Erro ao atualizar usuário.';
-        }
+        $error = $resultado['message'];
     }
 }
 ?>
@@ -60,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editar Usuário - Chemicall</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
     <?php include '../../componentes/header.php'; ?>
@@ -89,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php endif; ?>
 
                         <form method="POST">
+                            <?php echo csrf_field(); ?>
                             <div class="mb-3">
                                 <label for="nome" class="form-label">Nome Completo</label>
                                 <input type="text" class="form-control" id="nome" name="nome" required value="<?php echo htmlspecialchars($usuario['nome']); ?>">
@@ -148,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const tipoSelect = document.getElementById('tipo');

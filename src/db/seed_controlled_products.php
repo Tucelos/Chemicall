@@ -1,4 +1,13 @@
 <?php
+/**
+ * Popula a tabela de reagentes com produtos controlados de exemplo.
+ * Uso: php src/db/seed_controlled_products.php
+ */
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit('Este script só pode ser executado pela linha de comando.');
+}
+
 require_once __DIR__ . '/db_connection.php';
 require_once __DIR__ . '/../controllers/ReagenteController.php';
 
