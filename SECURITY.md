@@ -1,4 +1,4 @@
-# 🛡️ Política de Segurança (SECURITY.md) - Chemicall
+# 🛡️ Política de Segurança - Chemicall
 
 Este documento define a política de segurança do projeto **Chemicall**, orienta sobre como relatar vulnerabilidades e descreve as práticas de segurança adotadas e recomendadas para o sistema.
 
@@ -8,25 +8,15 @@ Este documento define a política de segurança do projeto **Chemicall**, orient
 
 Se você descobrir uma vulnerabilidade de segurança neste projeto, por favor **não abra uma issue pública**. Em vez disso, siga as instruções abaixo para relatar o problema de forma responsável:
 
-1. Envie um e-mail para o mantenedor do projeto em: **[Inserir E-mail de Contato]**.
+1. Envie um e-mail para o mantenedor do projeto em: **tuiggbarcelos.aluno@unipampa.edu.br**.
 2. No e-mail, inclua uma descrição detalhada do problema, incluindo:
    - Passos para reproduzir a vulnerabilidade (Proof of Concept).
    - O impacto potencial da falha.
-   - Qualquer sugestão de correção.
+   - Qualquer sugestão de correção ou melhoria.
 3. Faremos o possível para responder e avaliar o relatório o mais rápido possível e definir um plano de mitigação.
 
 ---
 
-## 🚀 Versões Suportadas
-
-Atualmente, o suporte a correções de segurança é aplicado da seguinte forma:
-
-| Versão | Suportada | Notas |
-| :--- | :---: | :--- |
-| **1.0.x (Atual)** | 🟢 Sim | Versão ativa de desenvolvimento e ajustes. |
-| **< 1.0.0** | 🔴 Não | Versões anteriores ou betas não recebem atualizações. |
-
----
 
 ## 🔒 Práticas de Segurança Implementadas
 
